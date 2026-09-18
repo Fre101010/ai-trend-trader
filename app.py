@@ -163,54 +163,165 @@ def status(m):
     if m["return"]>0 and m["pf"]>1:return "🟡 Positief, verder testen"
     return "🔴 Niet geschikt voor live"
 
-st.title("📈 AI Trend Trader v0.5")
-st.caption("Marktprofielen • multi-timeframe filter • ADX • automatische vergelijking")
-st.success("🔒 Alleen backtest/paper testing — echte orders staan uit.")
 
-market=st.selectbox("Markt",list(ASSETS))
-label=st.selectbox("Instrument",list(ASSETS[market]))
-ticker=ASSETS[market][label];profile=CFG["profiles"][pname(market,label)]
-cash=st.number_input("Fictief startkapitaal (€)",min_value=500.0,value=5000.0,step=500.0)
-st.info(f"Actief profiel: **{pname(market,label).upper()}**")
 
-a,b=st.tabs(["Eén test","Automatisch vergelijken"])
-with a:
-    tl=st.selectbox("Tijdsframe",["1 uur","4 uur","1 dag"],index=2);tf={"1 uur":"1h","4 uur":"4h","1 dag":"1d"}[tl]
-    shorts=st.toggle("Short-posities testen",value=bool(profile["allow_short_default"]))
-    if st.button("▶️ Start verbeterde backtest",type="primary"):
+def validation_metrics(m,c):
+    sharpe=sortino=0.0
+    if c is not None and not c.empty and len(c)>3:
+        ret=c.equity.pct_change().dropna()
+        if len(ret)>2 and ret.std()>0:
+            sharpe=float(ret.mean()/ret.std()*np.sqrt(252))
+        downside=ret[ret<0]
+        if len(downside)>1 and downside.std()>0:
+            sortino=float(ret.mean()/downside.std()*np.sqrt(252))
+    out=dict(m);out['sharpe']=sharpe;out['sortino']=sortino
+    return out
+
+def buy_hold_return(d):
+    d=d.dropna(subset=['close'])
+    return 0.0 if len(d)<2 else float((d.close.iloc[-1]/d.close.iloc[0]-1)*100)
+
+def validate_daily(market,label,ticker,cash,shorts):
+    d=get_data(market,ticker,'1d').copy()
+    cut=max(300,int(len(d)*0.70))
+    train=d.iloc[:cut].copy()
+    test=d.iloc[max(0,cut-250):].copy()
+    full_m,_,full_c=backtest(d,cash,market,label,'1d',shorts)
+    train_m,_,train_c=backtest(train,cash,market,label,'1d',shorts)
+    test_m,_,test_c=backtest(test,cash,market,label,'1d',shorts)
+    return d,validation_metrics(full_m,full_c),validation_metrics(train_m,train_c),validation_metrics(test_m,test_c),full_c
+
+def walk_forward_daily(d,market,label,cash,shorts,folds=4):
+    rows=[]
+    if len(d)<900:return pd.DataFrame()
+    warm=250
+    usable=len(d)-warm
+    step=max(150,usable//(folds+2))
+    for k in range(folds):
+        test_start=warm+step*(k+1)
+        test_end=min(len(d),test_start+step)
+        if test_end-test_start<90:break
+        seg=d.iloc[max(0,test_start-warm):test_end].copy()
+        m,_,_=backtest(seg,cash,market,label,'1d',shorts)
+        rows.append({'Fold':k+1,'Start':str(d.index[test_start].date()),'Einde':str(d.index[test_end-1].date()),
+                     'Rendement %':round(m['return'],2),'PF':round(m['pf'],2) if not math.isinf(m['pf']) else 999,
+                     'DD %':round(m['dd'],2),'Trades':m['trades']})
+    return pd.DataFrame(rows)
+
+def yearly_daily(d,market,label,cash,shorts):
+    rows=[]
+    for y in sorted(set(d.index.year)):
+        year=d[d.index.year==y]
+        if len(year)<80:continue
+        start=d.index.get_indexer([year.index[0]])[0]
+        seg=d.iloc[max(0,start-250):d.index.get_indexer([year.index[-1]])[0]+1].copy()
+        m,_,_=backtest(seg,cash,market,label,'1d',shorts)
+        rows.append({'Jaar':int(y),'Rendement %':round(m['return'],2),'PF':round(m['pf'],2) if not math.isinf(m['pf']) else 999,'Trades':m['trades']})
+    return pd.DataFrame(rows)
+
+def scan_one(market,label,ticker):
+    profile=CFG['profiles'][pname(market,label)]
+    frames={}
+    for tf in ['1d','4h','1h']:
+        d=get_data(market,ticker,tf)
+        e=enrich(d,profile)
+        r=e.iloc[-1]
+        L,S=scores(r,market)
+        trend='BULLISH' if L>S and bool(r.bullreg) else ('BEARISH' if S>L and bool(r.bearreg) else 'NEUTRAAL')
+        frames[tf]={'trend':trend,'adx':float(r.adx),'price':float(r.close),'atr':float(r.atr),'L':L,'S':S}
+    if frames['1d']['trend']=='BULLISH' and frames['4h']['trend']=='BULLISH':
+        action='LONG / HOLD' if frames['1h']['trend']!='BEARISH' else 'WACHT OP PULLBACK'
+    elif frames['1d']['trend']=='BEARISH' and frames['4h']['trend']=='BEARISH':
+        action='CASH' if market in ["Aandelen","ETF's","Indices"] or label=='Goud' else 'SHORT-KANDIDAAT'
+    else:
+        action='CASH / WACHTEN'
+    return frames,action
+
+
+st.title("📈 AI Trend Trader v0.6")
+st.caption("Validatie • out-of-sample • walk-forward • echte 1D/4H/1H scanner • paper portfolio")
+st.success("🔒 Geen echte orders. Alles blijft backtest/paper trading.")
+
+core=[("Grondstoffen","Goud","GC=F"),("ETF's","Nasdaq 100 ETF","QQQ"),("ETF's","S&P 500 ETF","SPY"),("Aandelen","Apple","AAPL")]
+
+t1,t2,t3=st.tabs(["1. Validatie","2. Markt scanner","3. Paper portfolio"])
+
+with t1:
+    st.subheader("Professionele validatie")
+    market=st.selectbox("Markt",list(ASSETS),key='vm')
+    label=st.selectbox("Instrument",list(ASSETS[market]),key='vl')
+    ticker=ASSETS[market][label]
+    cash=st.number_input("Fictief startkapitaal (€)",min_value=500.0,value=5000.0,step=500.0,key='vc')
+    shorts=st.toggle("Shorts meenemen",value=False,key='vs')
+    if st.button("🧪 Start professionele validatie",type="primary"):
         try:
-            with st.spinner("Test uitvoeren..."):
-                m,t,c=backtest(get_data(market,ticker,tf),cash,market,label,tf,shorts)
-                st.session_state["single"]=(m,t,c)
+            with st.spinner("Dagdata testen, out-of-sample en walk-forward berekenen..."):
+                d,full_m,train_m,test_m,curve=validate_daily(market,label,ticker,cash,shorts)
+                wf=walk_forward_daily(d,market,label,cash,shorts)
+                yr=yearly_daily(d,market,label,cash,shorts)
+                st.session_state['val']=(market,label,d,full_m,train_m,test_m,curve,wf,yr,buy_hold_return(d))
         except Exception as e: st.error(str(e))
-    if "single" in st.session_state:
-        m,t,c=st.session_state["single"];st.subheader(status(m))
-        x,y=st.columns(2);x.metric("Eindwaarde",f"€{m['final']:,.2f}");y.metric("Rendement",f"{m['return']:.2f}%")
-        x,y=st.columns(2);x.metric("Winrate",f"{m['winrate']:.1f}%");y.metric("Max. drawdown",f"{m['dd']:.2f}%")
-        x,y=st.columns(2);x.metric("Profit factor","∞" if math.isinf(m["pf"]) else f"{m['pf']:.2f}");y.metric("Trades",m["trades"])
-        x,y=st.columns(2);x.metric("Gem. winnaar",f"€{m['avgwin']:.2f}");y.metric("Gem. verliezer",f"€{m['avgloss']:.2f}")
-        x,y=st.columns(2);x.metric("Payoff ratio","∞" if math.isinf(m["payoff"]) else f"{m['payoff']:.2f}");y.metric("Expectancy/trade",f"€{m['expectancy']:.2f}")
-        st.caption(f"Longs: {m['longs']} · Shorts: {m['shorts']}")
-        if not c.empty: st.line_chart(c.equity)
-        if not t.empty:
-            with st.expander("Trades bekijken"): st.dataframe(t,use_container_width=True,hide_index=True)
+    if 'val' in st.session_state:
+        market,label,d,full_m,train_m,test_m,curve,wf,yr,bh=st.session_state['val']
+        st.write(f"**{label}** · {d.index[0].date()} t/m {d.index[-1].date()} · {len(d)} dagcandles")
+        a,b=st.columns(2);a.metric("Volledige strategie",f"{full_m['return']:.2f}%");b.metric("Buy & hold",f"{bh:.2f}%")
+        a,b=st.columns(2);a.metric("Train 70%",f"{train_m['return']:.2f}%");b.metric("Out-of-sample 30%",f"{test_m['return']:.2f}%")
+        a,b=st.columns(2);a.metric("Test PF","∞" if math.isinf(test_m['pf']) else f"{test_m['pf']:.2f}");b.metric("Test drawdown",f"{test_m['dd']:.2f}%")
+        a,b=st.columns(2);a.metric("Sharpe",f"{full_m['sharpe']:.2f}");b.metric("Sortino",f"{full_m['sortino']:.2f}")
+        if test_m['return']>0 and test_m['pf']>1: st.success("Out-of-sample is positief: kandidaat voor verdere paper testing.")
+        else: st.warning("Out-of-sample is niet overtuigend positief: niet promoveren naar live trading.")
+        st.markdown("#### Walk-forward")
+        st.dataframe(wf,use_container_width=True,hide_index=True) if not wf.empty else st.info("Te weinig data voor meerdere folds.")
+        st.markdown("#### Jaar per jaar")
+        st.dataframe(yr,use_container_width=True,hide_index=True)
+        if curve is not None and not curve.empty:
+            st.markdown("#### Equity curve")
+            st.line_chart(curve.equity)
 
-with b:
-    st.write("Test automatisch 1 uur, 4 uur en 1 dag — telkens zonder én met shorts.")
-    if st.button("🧪 Test alle 6 combinaties",type="primary"):
-        rows=[];bar=st.progress(0);comb=[("1h","1 uur",False),("1h","1 uur",True),("4h","4 uur",False),("4h","4 uur",True),("1d","1 dag",False),("1d","1 dag",True)]
-        for i,(tf,lab,sh) in enumerate(comb,1):
+with t2:
+    st.subheader("Actuele 1D / 4H / 1H scanner")
+    st.write("1D bepaalt de hoofdrichting, 4H bevestigt en 1H helpt de timing.")
+    if st.button("🔎 Scan kernportfolio",type="primary"):
+        rows=[];details={};bar=st.progress(0)
+        for i,(market,label,ticker) in enumerate(core,1):
             try:
-                m,_,_=backtest(get_data(market,ticker,tf),cash,market,label,tf,sh)
-                rows.append({"Tijdsframe":lab,"Shorts":"Aan" if sh else "Uit","Rendement %":round(m["return"],2),"PF":round(m["pf"],2) if not math.isinf(m["pf"]) else 999,
-                             "DD %":round(m["dd"],2),"Winrate %":round(m["winrate"],1),"Trades":m["trades"],"Gem winnaar €":round(m["avgwin"],2),
-                             "Gem verliezer €":round(m["avgloss"],2),"Expectancy €/trade":round(m["expectancy"],2),"Status":status(m)})
-            except Exception as e: rows.append({"Tijdsframe":lab,"Shorts":"Aan" if sh else "Uit","Status":f"Fout: {e}"})
-            bar.progress(i/6)
-        st.session_state["cmp"]=pd.DataFrame(rows)
-    if "cmp" in st.session_state:
-        st.dataframe(st.session_state["cmp"],use_container_width=True,hide_index=True)
+                frames,action=scan_one(market,label,ticker)
+                details[label]=frames
+                rows.append({'Markt':label,'1D':frames['1d']['trend'],'4H':frames['4h']['trend'],'1H':frames['1h']['trend'],'ADX 1D':round(frames['1d']['adx'],1),'Actie':action})
+            except Exception as e:
+                rows.append({'Markt':label,'Actie':f'Fout: {e}'})
+            bar.progress(i/len(core))
+        st.session_state['scan']=pd.DataFrame(rows)
+    if 'scan' in st.session_state:
+        st.dataframe(st.session_state['scan'],use_container_width=True,hide_index=True)
+        st.caption("Signalen op actuele data; geen winstgarantie.")
+
+with t3:
+    st.subheader("Paper portfolio snapshot")
+    st.write("Deze versie ververst wanneer je de app opent of op de knop drukt. Streamlit Community Cloud is geen 24/7 achtergrondserver.")
+    paper_cash=st.number_input("Virtueel portefeuillekapitaal (€)",min_value=500.0,value=5000.0,step=500.0,key='pc')
+    selected=st.multiselect("Markten",[x[1] for x in core],default=[x[1] for x in core])
+    if st.button("📋 Update paper portfolio",type="primary"):
+        rows=[]
+        lookup={label:(market,ticker) for market,label,ticker in core}
+        for label in selected:
+            market,ticker=lookup[label]
+            try:
+                frames,action=scan_one(market,label,ticker)
+                price=frames['1d']['price'];atrv=frames['1d']['atr'];profile=CFG['profiles'][pname(market,label)]
+                if action=='LONG / HOLD' and np.isfinite(price) and np.isfinite(atrv) and atrv>0:
+                    stop=price-profile['initial_stop_atr']*atrv
+                    qty=size(paper_cash/max(1,len(selected)),price,stop)
+                    value=qty*price;state='PAPER LONG'
+                else:
+                    stop=np.nan;value=0;state='CASH'
+                rows.append({'Markt':label,'Status':state,'Actie':action,'Koers':round(price,2),'Indicatieve stop':round(stop,2) if np.isfinite(stop) else None,'Positiewaarde €':round(value,2),'1D':frames['1d']['trend'],'4H':frames['4h']['trend'],'1H':frames['1h']['trend']})
+            except Exception as e:
+                rows.append({'Markt':label,'Status':'FOUT','Actie':str(e)})
+        st.session_state['paper']=pd.DataFrame(rows)
+    if 'paper' in st.session_state:
+        st.dataframe(st.session_state['paper'],use_container_width=True,hide_index=True)
+        st.info("Voor echte 24/7 paper trading voegen we later een externe database + scheduler toe.")
 
 st.divider()
-st.write("Nieuw in v0.5: aparte marktprofielen, multi-timeframe regimefilter, ADX, long-bias voor aandelen/ETF's/indices, strengere crypto-filtering, betere trailing stops en automatische vergelijking.")
-st.warning("Een backtest is geen winstgarantie. Deze versie blijft uitsluitend voor onderzoek/paper testing.")
+st.write("Kernregel: geen live trading op basis van één mooie backtest. Eerst out-of-sample, walk-forward en actuele paper tracking.")

@@ -1,11 +1,19 @@
-UPDATEN VAN v0.4 NAAR v0.5
+UPDATEN VAN v0.5 NAAR v0.6
 
-1. Pak deze ZIP uit op je pc.
+1. Pak de ZIP uit op je pc.
 2. Open GitHub: Fre101010/ai-trend-trader
-3. Upload/vervang app.py, config.yaml, requirements.txt en .streamlit/config.toml.
-4. Klik Commit changes.
-5. Wacht 1-3 minuten.
-6. Open dezelfde Streamlit-link opnieuw.
-7. Je iPhone-snelkoppeling blijft dezelfde.
+3. Klik Add file > Upload files.
+4. Upload/vervang app.py, config.yaml, requirements.txt en .streamlit/config.toml.
+5. Klik Commit changes.
+6. Wacht 1-3 minuten.
+7. Open dezelfde Streamlit-link op je iPhone.
 
-Je hoeft GEEN nieuwe repository en GEEN nieuwe Streamlit-app te maken.
+EERSTE TEST
+- Tab 1 Validatie
+- Kies Goud
+- Shorts uit
+- Start professionele validatie
+- Stuur screenshots van Out-of-sample 30%, Test PF, Walk-forward en Jaar per jaar.
+- Herhaal daarna Nasdaq 100 ETF en S&P 500 ETF.
+
+De paper portfolio is een actuele snapshot en draait niet 24/7 op de achtergrond.
