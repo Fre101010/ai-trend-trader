@@ -1,0 +1,22 @@
+AI TREND TRADER v0.4 — EENVOUDIGE IPHONE-STAPPEN
+
+1. Pak de ZIP uit op een computer.
+2. Maak een gratis GitHub repository, bv. ai-trend-trader.
+3. Upload alle bestanden uit de uitgepakte map.
+4. Open Streamlit Community Cloud.
+5. Kies Create app.
+6. Selecteer je GitHub repository.
+7. Kies app.py als main file.
+8. Klik Deploy.
+9. Open de gekregen web-link op je iPhone.
+10. Safari > Deel > Zet op beginscherm.
+
+DAARNA:
+- kies markt
+- kies instrument
+- kies 1u / 4u / 1d
+- kies fictief startkapitaal
+- zet short-test aan of uit
+- klik Start multi-market backtest
+
+DIT IS NOG GEEN LIVE TRADING APP.
