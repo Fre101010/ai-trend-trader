@@ -1,29 +1,16 @@
 starting_cash: 5000.0
-
 risk:
   risk_per_trade: 0.005
   max_position_fraction: 0.30
-  max_daily_loss: 0.02
-  max_drawdown: 0.08
-
-strategy:
-  fast_ema: 20
-  mid_ema: 50
-  slow_ema: 200
-  rsi_period: 14
-  atr_period: 14
-  breakout_lookback: 20
-  entry_score: 4
-  initial_stop_atr: 1.8
-  trail_atr: 2.2
-  profit_lock_r: 1.0
-  reversal_score_exit: 2
-
+  max_drawdown: 0.10
 execution:
-  fee_rate: 0.001
-  slippage: 0.0005
-
-safety:
-  live_trading_enabled: false
-  withdrawals_allowed: false
-  leverage_enabled: false
+  fee_rate_crypto: 0.0015
+  fee_rate_other: 0.0005
+  slippage_crypto: 0.0007
+  slippage_other: 0.0003
+profiles:
+  crypto: {fast_ema: 21, mid_ema: 55, slow_ema: 200, min_adx: 24, initial_stop_atr: 2.2, trail_atr: 2.8, profit_lock_r: 1.2, entry_score: 5, allow_short_default: true}
+  stocks: {fast_ema: 20, mid_ema: 50, slow_ema: 200, min_adx: 18, initial_stop_atr: 2.0, trail_atr: 2.6, profit_lock_r: 1.0, entry_score: 4, allow_short_default: false}
+  forex: {fast_ema: 20, mid_ema: 50, slow_ema: 150, min_adx: 20, initial_stop_atr: 1.8, trail_atr: 2.3, profit_lock_r: 1.0, entry_score: 4, allow_short_default: true}
+  gold: {fast_ema: 20, mid_ema: 50, slow_ema: 200, min_adx: 17, initial_stop_atr: 2.0, trail_atr: 2.7, profit_lock_r: 1.0, entry_score: 4, allow_short_default: false}
+  commodities: {fast_ema: 20, mid_ema: 50, slow_ema: 180, min_adx: 20, initial_stop_atr: 2.1, trail_atr: 2.6, profit_lock_r: 1.0, entry_score: 4, allow_short_default: true}
