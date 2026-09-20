@@ -139,39 +139,57 @@ def size_for_risk(capital,price,stop,risk_multiplier=1.0):
     return 0 if u<=0 else max(0,min(rb/u,(capital*CFG['risk']['max_position_fraction'])/price))
 
 
+
+
+def _mark(v):
+    return "✓" if v else "✗"
+
 def action_details(asset,s):
     meta=CFG['portfolio']['assets'][asset]
     profile=meta['profile']
     p=CFG['profiles'][profile]
 
-    if profile=='crypto':
-        d=s['1d']; h4=s['4h']; h1=s['1h']
-        bull_regime = (
-            d['trend']=='BULLISH'
-            and d['price']>d['ema200']
-            and d['ema50']>d['ema200']
-            and d['adx']>=p.get('min_adx',18)
-        )
-        confirmation = (
-            h4['trend']=='BULLISH'
-            and h4['adx']>=p.get('min_adx_4h',16)
-            and h4['price']>h4['ema50']
-        )
-        timing = (
-            h1['L']>=h1['S']
-            and p.get('rsi_min_1h',44) <= h1['rsi'] <= p.get('rsi_max_1h',72)
-            and h1['price']>h1['ema20']
-        )
+    d=s['1d']; h4=s['4h']; h1=s['1h']
 
-        def mark(v): return "✓" if v else "✗"
-        reason = (
-            f"1D bull-regime {mark(bull_regime)} | "
-            f"4H bevestiging {mark(confirmation)} | "
-            f"1H timing {mark(timing)}"
-        )
+    if profile=='crypto':
+        c1 = d['price'] > d['ema200']
+        c2 = d['ema50'] > d['ema200']
+        c3 = d['adx'] >= p.get('min_adx',18)
+        bull_regime = d['trend']=='BULLISH' and c1 and c2 and c3
+
+        c4 = h4['trend']=='BULLISH'
+        c5 = h4['adx'] >= p.get('min_adx_4h',16)
+        c6 = h4['price'] > h4['ema50']
+        confirmation = c4 and c5 and c6
+
+        rsi_min=p.get('rsi_min_1h',44)
+        rsi_max=p.get('rsi_max_1h',72)
+        c7 = h1['L'] >= h1['S']
+        c8 = rsi_min <= h1['rsi'] <= rsi_max
+        c9 = h1['price'] > h1['ema20']
+        timing = c7 and c8 and c9
+
+        action = "LONG" if bull_regime and confirmation and timing else "CASH"
+
         return {
-            "action": "LONG" if bull_regime and confirmation and timing else "CASH",
-            "reason": reason,
+            "action": action,
+            "reason": (
+                f"1D {d['trend']} | 4H {h4['trend']} | 1H {h1['trend']} | "
+                f"Actie {action}"
+            ),
+            "detail_1d": (
+                f"{d['trend']} — koers>EMA200 {_mark(c1)} | "
+                f"EMA50>EMA200 {_mark(c2)} | ADX {d['adx']:.1f}≥{p.get('min_adx',18)} {_mark(c3)}"
+            ),
+            "detail_4h": (
+                f"{h4['trend']} — trend bullish {_mark(c4)} | "
+                f"koers>EMA50 {_mark(c6)} | ADX {h4['adx']:.1f}≥{p.get('min_adx_4h',16)} {_mark(c5)}"
+            ),
+            "detail_1h": (
+                f"{h1['trend']} — longscore≥shortscore {_mark(c7)} | "
+                f"RSI {h1['rsi']:.1f} in {rsi_min}-{rsi_max} {_mark(c8)} | "
+                f"koers>EMA20 {_mark(c9)}"
+            ),
             "checks": {
                 "1d_bull_regime": bull_regime,
                 "4h_confirmation": confirmation,
@@ -182,6 +200,9 @@ def action_details(asset,s):
     action = desired_action(asset,s)
     return {
         "action": action,
-        "reason": f"1D {s['1d']['trend']} | 4H {s['4h']['trend']} | 1H {s['1h']['trend']}",
+        "reason": f"1D {d['trend']} | 4H {h4['trend']} | 1H {h1['trend']} | Actie {action}",
+        "detail_1d": f"{d['trend']} — ADX {d['adx']:.1f} | RSI {d['rsi']:.1f}",
+        "detail_4h": f"{h4['trend']} — ADX {h4['adx']:.1f} | RSI {h4['rsi']:.1f}",
+        "detail_1h": f"{h1['trend']} — ADX {h1['adx']:.1f} | RSI {h1['rsi']:.1f}",
         "checks": {}
     }
