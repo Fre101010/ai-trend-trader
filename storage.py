@@ -17,16 +17,17 @@ def _get_secret(name):
         pass
     return None
 
+def get_secret(name):
+    return _get_secret(name)
+
 def _supabase():
     url = _get_secret("SUPABASE_URL")
     key = _get_secret("SUPABASE_KEY")
     if not url or not key:
         return None
-
     url = url.rstrip("/")
     if "/rest/v1" in url:
         url = url.split("/rest/v1")[0]
-
     from supabase import create_client
     return create_client(url, key)
 
@@ -35,9 +36,16 @@ def default_state():
         "cash": 5000.0,
         "positions": {},
         "trades": [],
+        "events": [],
         "equity_history": [],
         "last_run": None
     }
+
+def normalize_state(state):
+    base = default_state()
+    for k,v in base.items():
+        state.setdefault(k, v)
+    return state
 
 def load_state():
     sb = _supabase()
@@ -45,8 +53,7 @@ def load_state():
         try:
             res = sb.table("paper_state").select("*").eq("id", 1).execute()
             if res.data:
-                return res.data[0]["payload"], "supabase"
-
+                return normalize_state(res.data[0]["payload"]), "supabase"
             state = default_state()
             sb.table("paper_state").upsert({"id": 1, "payload": state}).execute()
             return state, "supabase"
@@ -55,16 +62,15 @@ def load_state():
 
     if LOCAL.exists():
         try:
-            return json.loads(LOCAL.read_text(encoding="utf-8")), "local-demo"
+            return normalize_state(json.loads(LOCAL.read_text(encoding="utf-8"))), "local-demo"
         except Exception:
             pass
-
     return default_state(), "new"
 
 def save_state(state):
+    state = normalize_state(state)
     state["last_run"] = datetime.now(timezone.utc).isoformat()
     sb = _supabase()
-
     if sb:
         try:
             sb.table("paper_state").upsert({"id": 1, "payload": state}).execute()
@@ -72,6 +78,5 @@ def save_state(state):
         except Exception:
             LOCAL.write_text(json.dumps(state, indent=2), encoding="utf-8")
             return "local-demo"
-
     LOCAL.write_text(json.dumps(state, indent=2), encoding="utf-8")
     return "local-demo"
