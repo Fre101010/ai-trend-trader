@@ -137,3 +137,51 @@ def size_for_risk(capital,price,stop,risk_multiplier=1.0):
     rb=capital*CFG['risk']['risk_per_trade']*float(risk_multiplier)
     u=abs(price-stop)
     return 0 if u<=0 else max(0,min(rb/u,(capital*CFG['risk']['max_position_fraction'])/price))
+
+
+def action_details(asset,s):
+    meta=CFG['portfolio']['assets'][asset]
+    profile=meta['profile']
+    p=CFG['profiles'][profile]
+
+    if profile=='crypto':
+        d=s['1d']; h4=s['4h']; h1=s['1h']
+        bull_regime = (
+            d['trend']=='BULLISH'
+            and d['price']>d['ema200']
+            and d['ema50']>d['ema200']
+            and d['adx']>=p.get('min_adx',18)
+        )
+        confirmation = (
+            h4['trend']=='BULLISH'
+            and h4['adx']>=p.get('min_adx_4h',16)
+            and h4['price']>h4['ema50']
+        )
+        timing = (
+            h1['L']>=h1['S']
+            and p.get('rsi_min_1h',44) <= h1['rsi'] <= p.get('rsi_max_1h',72)
+            and h1['price']>h1['ema20']
+        )
+
+        def mark(v): return "✓" if v else "✗"
+        reason = (
+            f"1D bull-regime {mark(bull_regime)} | "
+            f"4H bevestiging {mark(confirmation)} | "
+            f"1H timing {mark(timing)}"
+        )
+        return {
+            "action": "LONG" if bull_regime and confirmation and timing else "CASH",
+            "reason": reason,
+            "checks": {
+                "1d_bull_regime": bull_regime,
+                "4h_confirmation": confirmation,
+                "1h_timing": timing,
+            }
+        }
+
+    action = desired_action(asset,s)
+    return {
+        "action": action,
+        "reason": f"1D {s['1d']['trend']} | 4H {s['4h']['trend']} | 1H {s['1h']['trend']}",
+        "checks": {}
+    }

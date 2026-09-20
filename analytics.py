@@ -12,7 +12,13 @@ def realized_pnl(state):
     return sum(float(t.get("pnl", 0.0)) for t in state.get("trades", []))
 
 def open_pnl(state):
-    return sum(float(p.get("unrealized_pnl", 0.0)) for p in state.get("positions", {}).values())
+    total = 0.0
+    for p in state.get("positions", {}).values():
+        entry = float(p.get("entry", 0.0))
+        last = float(p.get("last_price", entry))
+        qty = float(p.get("qty", 0.0))
+        total += (last - entry) * qty
+    return total
 
 def trade_stats(state):
     trades = state.get("trades", [])

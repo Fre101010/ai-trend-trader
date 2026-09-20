@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from trading_core import CFG, market_snapshot, desired_action
+from trading_core import CFG, market_snapshot, desired_action, action_details
 from storage import load_state, get_secret
 from paper_runner import run_once
 from notifier import notify
@@ -9,14 +9,14 @@ from analytics import (
     max_drawdown_pct, return_since_start_pct, per_market_stats
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.0",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.0.1",page_icon="📈",layout="wide")
 st.markdown("""<style>
 .block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
 .stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
 div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v1.0")
+st.title("📈 AI Trend Trader v1.0.1")
 st.caption("Persistente paper trading • BTC & ETH 24/7 • alerts • performance analytics • dagelijkse Telegram-samenvatting")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
@@ -72,14 +72,17 @@ with tabs[0]:
     for asset in CFG["portfolio"]["assets"]:
         pos=positions.get(asset)
         if pos:
-            open_pct=((pos.get("last_price",pos["entry"])-pos["entry"])/pos["entry"])*100
-            stop_distance=((pos.get("last_price",0)-pos.get("trail_stop",0))/pos.get("last_price",1))*100 if pos.get("last_price") else 0
+            last_price=pos.get("last_price",pos["entry"])
+            qty=float(pos.get("qty",0))
+            open_pnl_eur=(last_price-pos["entry"])*qty
+            open_pct=((last_price-pos["entry"])/pos["entry"])*100
+            stop_distance=((last_price-pos.get("trail_stop",0))/last_price)*100 if last_price else 0
             rows.append({
                 "Markt":asset,"Status":"LONG","Entry":round(pos["entry"],2),
-                "Laatste koers":round(pos.get("last_price",0),2),
+                "Laatste koers":round(last_price,2),
                 "Trailing stop":round(pos.get("trail_stop",0),2),
                 "Afstand tot stop %":round(stop_distance,2),
-                "Open P/L €":round(pos.get("unrealized_pnl",0),2),
+                "Open P/L €":round(open_pnl_eur,2),
                 "Open P/L %":round(open_pct,2)
             })
         else:
@@ -126,6 +129,7 @@ with tabs[2]:
         bar=st.progress(0)
         for i,asset in enumerate(assets,1):
             snap=market_snapshot(asset)
+            detail=action_details(asset,snap)
             out.append({
                 "Markt":asset,
                 "1D":snap["1d"]["trend"],
@@ -133,12 +137,14 @@ with tabs[2]:
                 "1H":snap["1h"]["trend"],
                 "ADX 1D":round(snap["1d"]["adx"],1),
                 "RSI 1H":round(snap["1h"]["rsi"],1),
-                "Actie":desired_action(asset,snap)
+                "Actie":detail["action"],
+                "Waarom":detail["reason"]
             })
             bar.progress(i/len(assets))
         st.session_state["scan"]=pd.DataFrame(out)
     if "scan" in st.session_state:
         st.dataframe(st.session_state["scan"],use_container_width=True,hide_index=True)
+        st.caption("Bij Bitcoin en Ethereum toont ‘Waarom’ exact welke crypto-filter nog niet voldoet.")
 
 with tabs[3]:
     state,_=load_state()
@@ -169,7 +175,7 @@ with tabs[5]:
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.0 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.0.1 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
