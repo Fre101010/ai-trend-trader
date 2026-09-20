@@ -40,7 +40,8 @@ def default_state():
         "equity_history": [],
         "last_run": None,
         "last_daily_summary_date": None,
-        "starting_equity": 5000.0
+        "starting_equity": 5000.0,
+        "enabled_assets": {}
     }
 
 def normalize_state(state):
@@ -69,9 +70,10 @@ def load_state():
             pass
     return default_state(), "new"
 
-def save_state(state):
+def save_state(state, update_last_run=True):
     state = normalize_state(state)
-    state["last_run"] = datetime.now(timezone.utc).isoformat()
+    if update_last_run:
+        state["last_run"] = datetime.now(timezone.utc).isoformat()
     sb = _supabase()
     if sb:
         try:

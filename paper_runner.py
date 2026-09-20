@@ -60,6 +60,9 @@ def run_once(send_daily_summary=False):
     slip = CFG["execution"]["slippage"]
     positions = state.setdefault("positions", {})
     trades = state.setdefault("trades", [])
+    enabled_assets = state.setdefault("enabled_assets", {})
+    for _asset in CFG["portfolio"]["assets"]:
+        enabled_assets.setdefault(_asset, True)
 
     for asset,meta in CFG["portfolio"]["assets"].items():
         snap = market_snapshot(asset)
@@ -101,7 +104,9 @@ def run_once(send_daily_summary=False):
                 del positions[asset]
                 pos = None
 
-        if pos is None and action=="LONG":
+        asset_enabled = bool(enabled_assets.get(asset, True))
+
+        if pos is None and asset_enabled and action=="LONG":
             allocation = state["cash"]*meta["allocation_weight"]
             stop = price-p["initial_stop_atr"]*snap["1d"]["atr"]
             qty = size_for_risk(allocation,price,stop,meta.get('risk_multiplier',1.0))
