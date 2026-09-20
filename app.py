@@ -5,7 +5,13 @@ from paper_runner import run_once
 st.set_page_config(page_title='AI Trend Trader v0.7',page_icon='📈',layout='centered')
 st.markdown('<style>.block-container{padding-top:1rem;padding-bottom:4rem;max-width:950px}.stButton>button{width:100%;min-height:54px;border-radius:14px;font-weight:700}div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}</style>',unsafe_allow_html=True)
 st.title('📈 AI Trend Trader v0.7');st.caption('Persistente paper trading • Goud • Nasdaq 100 ETF • S&P 500 ETF');st.success('🔒 PAPER ONLY — geen echte orders of brokerkoppeling.')
-state,mode=load_state();st.success('💾 Persistente opslag actief via Supabase') if mode=='supabase' else st.warning('💾 Demo-opslag actief. Koppel Supabase voor echte persistentie.')
+state,mode=load_state()
+if mode=="supabase":
+    st.success("💾 Persistente opslag actief via Supabase")
+elif str(mode).startswith("supabase-error"):
+    st.error("💾 Supabase is gevonden, maar de verbinding geeft nog een fout. Controleer Streamlit Secrets en Supabase Data API.")
+else:
+    st.warning("💾 Demo-opslag actief. Koppel Supabase voor echte persistentie.")
 t1,t2,t3,t4=st.tabs(['Paper dashboard','Live scanner','Tradehistoriek','Instellingen'])
 with t1:
  if st.button('▶️ Update paper portfolio nu',type='primary'):
