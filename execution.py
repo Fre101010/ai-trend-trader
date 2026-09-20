@@ -1,4 +1,5 @@
 from __future__ import annotations
+from risk_guard import clamp_settings
 from dataclasses import dataclass
 from typing import Dict, Any
 
@@ -17,12 +18,16 @@ DEFAULT_AUTOMATION = {
     "max_daily_loss_pct": 2.0,
     "risk_per_trade_pct": 0.5,
     "require_stop": True,
+    "max_portfolio_heat_pct": 2.0,
+    "min_cash_reserve_pct": 12.5,
+    "account_capital": 5000.0,
 }
 
 def normalize_automation(state: Dict[str, Any]) -> Dict[str, Any]:
     cfg = state.setdefault("automation", {})
     for k, v in DEFAULT_AUTOMATION.items():
         cfg.setdefault(k, v)
+    cfg.update(clamp_settings(cfg))
     return cfg
 
 def can_open_new_trade(state: Dict[str, Any], open_positions: int) -> tuple[bool, str]:

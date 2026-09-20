@@ -5,6 +5,7 @@ from storage import load_state, save_state
 from notifier import notify
 from analytics import current_equity, realized_pnl, open_pnl, trade_stats, max_drawdown_pct, return_since_start_pct
 from execution import normalize_automation, can_open_new_trade
+from risk_guard import guard_new_entry
 
 def add_event(state, kind, asset, message, extra=None, do_notify=True):
     event = {
@@ -116,7 +117,9 @@ def run_once(send_daily_summary=False):
             entry = price*(1+slip)
             notional = qty*entry
             entry_fee = notional*fee
-            if qty>0 and notional+entry_fee <= state["cash"]:
+            proposed_risk_eur=max(0.0,(entry-stop)*qty)
+            guard_ok, guard_reason = guard_new_entry(state, notional+entry_fee, proposed_risk_eur)
+            if qty>0 and notional+entry_fee <= state["cash"] and guard_ok:
                 state["cash"] -= notional+entry_fee
                 positions[asset] = {
                     "entry_time":datetime.now(timezone.utc).isoformat(),

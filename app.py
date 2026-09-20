@@ -5,20 +5,21 @@ from storage import load_state, get_secret, save_state
 from paper_runner import run_once
 from notifier import notify
 from execution import MODES, normalize_automation, broker_status
+from risk_guard import suggested_settings, clamp_settings, portfolio_heat_pct, HARD_LIMITS
 from analytics import (
     current_equity, realized_pnl, open_pnl, trade_stats,
     max_drawdown_pct, return_since_start_pct, per_market_stats,
     forward_test_table, weekly_summary
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.2",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.2.1",page_icon="📈",layout="wide")
 st.markdown("""<style>
 .block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
 .stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
 div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v1.2")
+st.title("📈 AI Trend Trader v1.2.1")
 st.caption("Trading companion • signalen • bevestigen • Auto Paper • voorbereid op Auto Live")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
@@ -108,86 +109,123 @@ with tabs[0]:
 
 
 
+
 with tabs[1]:
     state,_=load_state()
     auto=normalize_automation(state)
     status=broker_status(state)
 
-    st.subheader("Automatisering")
-    st.caption("Kies hoe ver de app zelfstandig mag gaan. Auto Live blijft vergrendeld totdat een echte broker/exchange veilig is gekoppeld.")
+    st.subheader("Automatisering & Risk Guard")
+    st.caption("Vul het beschikbare kapitaal in. De app stelt conservatieve waarden voor. De gebruiker kan aanpassen, maar nooit boven de harde veiligheidsgrenzen.")
 
-    mode_labels = list(MODES.values())
-    reverse_modes = {v:k for k,v in MODES.items()}
-    current_label = MODES.get(auto.get("mode","auto_paper"), "Auto Paper")
-
-    selected_label = st.selectbox(
-        "Execution mode",
-        mode_labels,
-        index=mode_labels.index(current_label) if current_label in mode_labels else 2
+    account_capital=st.number_input(
+        "Beschikbaar kapitaal (€)",
+        min_value=100.0,
+        value=float(auto.get("account_capital",5000.0)),
+        step=100.0
     )
-    selected_mode = reverse_modes[selected_label]
+    suggestion=suggested_settings(account_capital)
+
+    if st.button("🛡️ Gebruik veilig voorstel"):
+        auto.update(suggestion)
+        auto["account_capital"]=float(account_capital)
+        state["automation"]=auto
+        save_state(state, update_last_run=False)
+        st.success("Veilig voorstel toegepast. Herlaad of wijzig hieronder verder binnen de toegestane grenzen.")
+
+    mode_labels=list(MODES.values())
+    reverse_modes={v:k for k,v in MODES.items()}
+    current_label=MODES.get(auto.get("mode","auto_paper"),"Auto Paper")
+    selected_label=st.selectbox("Execution mode",mode_labels,index=mode_labels.index(current_label))
+    selected_mode=reverse_modes[selected_label]
 
     c1,c2=st.columns(2)
     max_positions=c1.number_input(
         "Max. open posities",
-        min_value=1,max_value=20,
-        value=int(auto.get("max_open_positions",5)),step=1
+        min_value=1,
+        max_value=HARD_LIMITS["max_open_positions_max"],
+        value=int(auto.get("max_open_positions",suggestion["max_open_positions"])),
+        step=1
     )
     risk_pct=c2.number_input(
         "Risico per trade (%)",
-        min_value=0.1,max_value=5.0,
-        value=float(auto.get("risk_per_trade_pct",0.5)),step=0.1
+        min_value=0.1,
+        max_value=HARD_LIMITS["risk_per_trade_pct_max"],
+        value=float(auto.get("risk_per_trade_pct",suggestion["risk_per_trade_pct"])),
+        step=0.05
     )
 
     c1,c2=st.columns(2)
     daily_loss=c1.number_input(
         "Max. dagverlies (%)",
-        min_value=0.5,max_value=20.0,
-        value=float(auto.get("max_daily_loss_pct",2.0)),step=0.5
+        min_value=0.5,
+        max_value=HARD_LIMITS["daily_loss_pct_max"],
+        value=float(auto.get("max_daily_loss_pct",suggestion["max_daily_loss_pct"])),
+        step=0.25
     )
-    require_stop=c2.checkbox(
-        "Stop verplicht",
-        value=bool(auto.get("require_stop",True))
+    heat=c2.number_input(
+        "Max. totaal portefeuillerisico (%)",
+        min_value=0.5,
+        max_value=HARD_LIMITS["portfolio_heat_pct_max"],
+        value=float(auto.get("max_portfolio_heat_pct",suggestion["max_portfolio_heat_pct"])),
+        step=0.25
     )
+
+    c1,c2=st.columns(2)
+    reserve=c1.number_input(
+        "Min. cashreserve (%)",
+        min_value=HARD_LIMITS["min_cash_reserve_pct"],
+        max_value=50.0,
+        value=float(auto.get("min_cash_reserve_pct",suggestion["min_cash_reserve_pct"])),
+        step=2.5
+    )
+    require_stop=c2.checkbox("Stop verplicht",value=bool(auto.get("require_stop",True)))
 
     emergency=st.toggle(
         "🛑 Noodstop — blokkeer alle nieuwe automatische entries",
         value=bool(auto.get("emergency_stop",False))
     )
 
+    st.info(
+        f"Voorstel bij €{account_capital:,.0f}: "
+        f"{suggestion['risk_per_trade_pct']:.2f}% risico/trade • "
+        f"{suggestion['max_open_positions']} posities • "
+        f"{suggestion['max_portfolio_heat_pct']:.2f}% totaal risico • "
+        f"{suggestion['min_cash_reserve_pct']:.1f}% cashreserve."
+    )
+
     if selected_mode=="auto_live":
-        st.warning("Auto Live is nog vergrendeld. Eerst kiezen we jouw broker/exchange en bouwen we de specifieke API-koppeling met aparte veiligheidscontroles.")
+        st.warning("Auto Live blijft vergrendeld totdat een broker/exchange veilig gekoppeld en getest is.")
     elif selected_mode=="auto_paper":
-        st.success("Auto Paper: de app mag automatisch paper trades openen, beheren en sluiten.")
-    elif selected_mode=="confirm":
-        st.info("Handmatig bevestigen: signalen worden berekend, maar een entry moet eerst door de gebruiker bevestigd worden.")
-    else:
-        st.info("Signalen: alleen analyse en meldingen; geen automatische entries.")
+        st.success("Auto Paper: automatische paper entries/exits, begrensd door Risk Guard.")
 
     if st.button("💾 Automatisering opslaan", type="primary"):
         auto["mode"]=selected_mode
+        auto["account_capital"]=float(account_capital)
         auto["max_open_positions"]=int(max_positions)
         auto["risk_per_trade_pct"]=float(risk_pct)
         auto["max_daily_loss_pct"]=float(daily_loss)
+        auto["max_portfolio_heat_pct"]=float(heat)
+        auto["min_cash_reserve_pct"]=float(reserve)
         auto["require_stop"]=bool(require_stop)
         auto["emergency_stop"]=bool(emergency)
-        # live remains locked until broker adapter is implemented
         auto["live_enabled"]=False
+        auto=clamp_settings(auto)
         state["automation"]=auto
         save_state(state, update_last_run=False)
-        st.success("Automatiseringsinstellingen opgeslagen.")
+        st.success("Instellingen opgeslagen binnen de harde veiligheidsgrenzen.")
 
-    st.markdown("#### Live-koppeling")
-    c1,c2,c3=st.columns(3)
-    c1.metric("Broker/exchange",status["broker"])
-    c2.metric("Live trading","VERGRENDELD" if not status["live_ready"] else "KLAAR")
-    c3.metric("Noodstop","AAN" if auto.get("emergency_stop") else "UIT")
+    st.markdown("#### Huidige bescherming")
+    c1,c2,c3,c4=st.columns(4)
+    c1.metric("Open posities",len(state.get("positions",{})))
+    c2.metric("Portfolio heat",f"{portfolio_heat_pct(state):.2f}%")
+    c3.metric("Cash",f"€{state.get('cash',0):,.2f}")
+    c4.metric("Noodstop","AAN" if auto.get("emergency_stop") else "UIT")
 
-    st.markdown("#### Hoe de modi werken")
-    st.write("**Signalen** → analyse + Telegram, klant handelt zelf.")
-    st.write("**Handmatig bevestigen** → app vindt setup, klant bevestigt entry.")
-    st.write("**Auto Paper** → volledig automatisch, maar met fictief geld.")
-    st.write("**Auto Live** → later echte orders via gekoppelde broker/exchange; standaard vergrendeld.")
+    st.caption(
+        "Nieuwe entries worden automatisch geweigerd bij te weinig vrije cash, te veel open posities, "
+        "te hoog totaal risico of actieve noodstop."
+    )
 
 with tabs[2]:
     state,_=load_state()
@@ -354,7 +392,7 @@ with tabs[8]:
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.2 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.2.1 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:

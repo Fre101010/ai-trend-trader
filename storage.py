@@ -49,7 +49,10 @@ def default_state():
             "max_open_positions": 5,
             "max_daily_loss_pct": 2.0,
             "risk_per_trade_pct": 0.5,
-            "require_stop": True
+            "require_stop": True,
+            "max_portfolio_heat_pct": 2.0,
+            "min_cash_reserve_pct": 12.5,
+            "account_capital": 5000.0
         }
     }
 
