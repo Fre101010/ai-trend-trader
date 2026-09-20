@@ -41,7 +41,16 @@ def default_state():
         "last_run": None,
         "last_daily_summary_date": None,
         "starting_equity": 5000.0,
-        "enabled_assets": {}
+        "enabled_assets": {},
+        "automation": {
+            "mode": "auto_paper",
+            "live_enabled": False,
+            "emergency_stop": False,
+            "max_open_positions": 5,
+            "max_daily_loss_pct": 2.0,
+            "risk_per_trade_pct": 0.5,
+            "require_stop": True
+        }
     }
 
 def normalize_state(state):

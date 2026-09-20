@@ -4,6 +4,7 @@ from trading_core import CFG, market_snapshot, desired_action, size_for_risk
 from storage import load_state, save_state
 from notifier import notify
 from analytics import current_equity, realized_pnl, open_pnl, trade_stats, max_drawdown_pct, return_since_start_pct
+from execution import normalize_automation, can_open_new_trade
 
 def add_event(state, kind, asset, message, extra=None, do_notify=True):
     event = {
@@ -61,6 +62,7 @@ def run_once(send_daily_summary=False):
     positions = state.setdefault("positions", {})
     trades = state.setdefault("trades", [])
     enabled_assets = state.setdefault("enabled_assets", {})
+    automation = normalize_automation(state)
     for _asset in CFG["portfolio"]["assets"]:
         enabled_assets.setdefault(_asset, True)
 
@@ -105,8 +107,9 @@ def run_once(send_daily_summary=False):
                 pos = None
 
         asset_enabled = bool(enabled_assets.get(asset, True))
+        auto_allowed, auto_reason = can_open_new_trade(state, len(positions))
 
-        if pos is None and asset_enabled and action=="LONG":
+        if pos is None and asset_enabled and action=="LONG" and automation.get("mode")=="auto_paper" and auto_allowed:
             allocation = state["cash"]*meta["allocation_weight"]
             stop = price-p["initial_stop_atr"]*snap["1d"]["atr"]
             qty = size_for_risk(allocation,price,stop,meta.get('risk_multiplier',1.0))

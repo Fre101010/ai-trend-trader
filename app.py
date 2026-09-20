@@ -4,21 +4,22 @@ from trading_core import CFG, market_snapshot, desired_action, action_details
 from storage import load_state, get_secret, save_state
 from paper_runner import run_once
 from notifier import notify
+from execution import MODES, normalize_automation, broker_status
 from analytics import (
     current_equity, realized_pnl, open_pnl, trade_stats,
     max_drawdown_pct, return_since_start_pct, per_market_stats,
     forward_test_table, weekly_summary
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.1",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.2",page_icon="📈",layout="wide")
 st.markdown("""<style>
 .block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
 .stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
 div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v1.1")
-st.caption("Persistente paper trading • BTC & ETH 24/7 • forward-test monitor • alerts • performance analytics")
+st.title("📈 AI Trend Trader v1.2")
+st.caption("Trading companion • signalen • bevestigen • Auto Paper • voorbereid op Auto Live")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
 state,mode=load_state()
@@ -38,7 +39,7 @@ elif discord_ready:
 else:
     st.info("🔕 Meldingen nog niet gekoppeld. Paper trading blijft wel werken.")
 
-tabs=st.tabs(["Dashboard","Instrumenten","Forward test","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
+tabs=st.tabs(["Dashboard","Automatisering","Instrumenten","Forward test","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
 
 with tabs[0]:
     if st.button("▶️ Update paper portfolio nu",type="primary"):
@@ -47,6 +48,8 @@ with tabs[0]:
         st.success("Paper portfolio bijgewerkt.")
 
     state,_=load_state()
+    auto=normalize_automation(state)
+    st.caption(f"Execution mode: **{MODES.get(auto.get('mode','auto_paper'), auto.get('mode'))}**" + (" • 🛑 NOODSTOP ACTIEF" if auto.get("emergency_stop") else ""))
     positions=state.get("positions",{})
     trades=state.get("trades",[])
     hist=state.get("equity_history",[])
@@ -104,7 +107,89 @@ with tabs[0]:
         st.line_chart(h["equity"])
 
 
+
 with tabs[1]:
+    state,_=load_state()
+    auto=normalize_automation(state)
+    status=broker_status(state)
+
+    st.subheader("Automatisering")
+    st.caption("Kies hoe ver de app zelfstandig mag gaan. Auto Live blijft vergrendeld totdat een echte broker/exchange veilig is gekoppeld.")
+
+    mode_labels = list(MODES.values())
+    reverse_modes = {v:k for k,v in MODES.items()}
+    current_label = MODES.get(auto.get("mode","auto_paper"), "Auto Paper")
+
+    selected_label = st.selectbox(
+        "Execution mode",
+        mode_labels,
+        index=mode_labels.index(current_label) if current_label in mode_labels else 2
+    )
+    selected_mode = reverse_modes[selected_label]
+
+    c1,c2=st.columns(2)
+    max_positions=c1.number_input(
+        "Max. open posities",
+        min_value=1,max_value=20,
+        value=int(auto.get("max_open_positions",5)),step=1
+    )
+    risk_pct=c2.number_input(
+        "Risico per trade (%)",
+        min_value=0.1,max_value=5.0,
+        value=float(auto.get("risk_per_trade_pct",0.5)),step=0.1
+    )
+
+    c1,c2=st.columns(2)
+    daily_loss=c1.number_input(
+        "Max. dagverlies (%)",
+        min_value=0.5,max_value=20.0,
+        value=float(auto.get("max_daily_loss_pct",2.0)),step=0.5
+    )
+    require_stop=c2.checkbox(
+        "Stop verplicht",
+        value=bool(auto.get("require_stop",True))
+    )
+
+    emergency=st.toggle(
+        "🛑 Noodstop — blokkeer alle nieuwe automatische entries",
+        value=bool(auto.get("emergency_stop",False))
+    )
+
+    if selected_mode=="auto_live":
+        st.warning("Auto Live is nog vergrendeld. Eerst kiezen we jouw broker/exchange en bouwen we de specifieke API-koppeling met aparte veiligheidscontroles.")
+    elif selected_mode=="auto_paper":
+        st.success("Auto Paper: de app mag automatisch paper trades openen, beheren en sluiten.")
+    elif selected_mode=="confirm":
+        st.info("Handmatig bevestigen: signalen worden berekend, maar een entry moet eerst door de gebruiker bevestigd worden.")
+    else:
+        st.info("Signalen: alleen analyse en meldingen; geen automatische entries.")
+
+    if st.button("💾 Automatisering opslaan", type="primary"):
+        auto["mode"]=selected_mode
+        auto["max_open_positions"]=int(max_positions)
+        auto["risk_per_trade_pct"]=float(risk_pct)
+        auto["max_daily_loss_pct"]=float(daily_loss)
+        auto["require_stop"]=bool(require_stop)
+        auto["emergency_stop"]=bool(emergency)
+        # live remains locked until broker adapter is implemented
+        auto["live_enabled"]=False
+        state["automation"]=auto
+        save_state(state, update_last_run=False)
+        st.success("Automatiseringsinstellingen opgeslagen.")
+
+    st.markdown("#### Live-koppeling")
+    c1,c2,c3=st.columns(3)
+    c1.metric("Broker/exchange",status["broker"])
+    c2.metric("Live trading","VERGRENDELD" if not status["live_ready"] else "KLAAR")
+    c3.metric("Noodstop","AAN" if auto.get("emergency_stop") else "UIT")
+
+    st.markdown("#### Hoe de modi werken")
+    st.write("**Signalen** → analyse + Telegram, klant handelt zelf.")
+    st.write("**Handmatig bevestigen** → app vindt setup, klant bevestigt entry.")
+    st.write("**Auto Paper** → volledig automatisch, maar met fictief geld.")
+    st.write("**Auto Live** → later echte orders via gekoppelde broker/exchange; standaard vergrendeld.")
+
+with tabs[2]:
     state,_=load_state()
     enabled_assets=state.setdefault("enabled_assets", {})
     all_assets=list(CFG["portfolio"]["assets"].keys())
@@ -148,7 +233,7 @@ with tabs[1]:
     st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
 
 
-with tabs[2]:
+with tabs[3]:
     state,_=load_state()
     st.subheader("Forward-test monitor")
     st.caption("Deze monitor beoordeelt alleen de paper-resultaten die vanaf nu werkelijk binnenkomen. De strategie wordt hier niet automatisch aangepast.")
@@ -188,7 +273,7 @@ with tabs[2]:
     c2.metric("Open P/L",f"€{w['open_pnl']:.2f}")
     c3.metric("Gerealiseerd P/L",f"€{w['realized_pnl']:.2f}")
 
-with tabs[3]:
+with tabs[4]:
     state,_=load_state()
     stats=trade_stats(state)
     c1,c2,c3,c4=st.columns(4)
@@ -213,7 +298,7 @@ with tabs[3]:
     else:
         st.info("Nog geen gesloten trades om per markt te analyseren.")
 
-with tabs[4]:
+with tabs[5]:
     if st.button("🔎 Scan 1D / 4H / 1H",type="primary"):
         out=[]
         assets=list(CFG["portfolio"]["assets"].keys())
@@ -240,7 +325,7 @@ with tabs[4]:
         st.dataframe(st.session_state["scan"],use_container_width=True,hide_index=True)
         st.caption("Je ziet altijd eerst BULLISH / BEARISH / NEUTRAAL. ‘Trading UIT’ betekent dat de scanner wel analyseert, maar geen nieuwe positie opent.")
 
-with tabs[5]:
+with tabs[6]:
     state,_=load_state()
     events=state.get("events",[])
     if not events:
@@ -255,7 +340,7 @@ with tabs[5]:
             e=e[e["kind"]==selected]
         st.dataframe(e[["time","kind","asset","message"]],use_container_width=True,hide_index=True)
 
-with tabs[6]:
+with tabs[7]:
     state,_=load_state()
     trades=state.get("trades",[])
     if not trades:
@@ -264,12 +349,12 @@ with tabs[6]:
         t=pd.DataFrame(trades)
         st.dataframe(t,use_container_width=True,hide_index=True)
 
-with tabs[7]:
+with tabs[8]:
     st.write("Automatische meldingen gaan naar Telegram bij PAPER LONG, trailing-stop update en PAPER EXIT.")
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.1 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.2 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
