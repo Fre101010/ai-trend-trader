@@ -4,18 +4,31 @@ portfolio:
     Goud:
       ticker: GC=F
       profile: gold
-      allocation_weight: 0.3333
+      allocation_weight: 0.24
+      risk_multiplier: 1.0
     Nasdaq 100 ETF:
       ticker: QQQ
       profile: stocks
-      allocation_weight: 0.3333
+      allocation_weight: 0.18
+      risk_multiplier: 1.0
     S&P 500 ETF:
       ticker: SPY
       profile: stocks
-      allocation_weight: 0.3334
+      allocation_weight: 0.18
+      risk_multiplier: 1.0
+    Bitcoin:
+      ticker: BTC-USD
+      profile: crypto
+      allocation_weight: 0.22
+      risk_multiplier: 0.65
+    Ethereum:
+      ticker: ETH-USD
+      profile: crypto
+      allocation_weight: 0.18
+      risk_multiplier: 0.55
 risk:
   risk_per_trade: 0.005
-  max_position_fraction: 0.30
+  max_position_fraction: 0.3
 execution:
   fee_rate: 0.0005
   slippage: 0.0003
@@ -38,3 +51,15 @@ profiles:
     trail_atr: 2.6
     profit_lock_r: 1.0
     entry_score: 4
+  crypto:
+    fast_ema: 20
+    mid_ema: 50
+    slow_ema: 200
+    min_adx: 18
+    min_adx_4h: 16
+    initial_stop_atr: 2.6
+    trail_atr: 3.2
+    profit_lock_r: 1.2
+    entry_score: 5
+    rsi_min_1h: 44
+    rsi_max_1h: 72

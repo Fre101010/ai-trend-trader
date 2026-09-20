@@ -1,48 +1,139 @@
 from __future__ import annotations
 import numpy as np, pandas as pd, yfinance as yf, yaml
-with open('config.yaml','r',encoding='utf-8') as f: CFG=yaml.safe_load(f)
+
+with open('config.yaml','r',encoding='utf-8') as f:
+    CFG=yaml.safe_load(f)
+
 def ema(s,n): return s.ewm(span=n,adjust=False).mean()
+
 def rsi(s,n=14):
- d=s.diff();u=d.clip(lower=0).ewm(alpha=1/n,adjust=False).mean();v=(-d.clip(upper=0)).ewm(alpha=1/n,adjust=False).mean();rs=u/v.replace(0,np.nan);return (100-100/(1+rs)).fillna(50)
+    d=s.diff()
+    u=d.clip(lower=0).ewm(alpha=1/n,adjust=False).mean()
+    v=(-d.clip(upper=0)).ewm(alpha=1/n,adjust=False).mean()
+    rs=u/v.replace(0,np.nan)
+    return (100-100/(1+rs)).fillna(50)
+
 def atr(d,n=14):
- pc=d.close.shift();tr=pd.concat([(d.high-d.low).abs(),(d.high-pc).abs(),(d.low-pc).abs()],axis=1).max(axis=1);return tr.ewm(alpha=1/n,adjust=False).mean()
+    pc=d.close.shift()
+    tr=pd.concat([(d.high-d.low).abs(),(d.high-pc).abs(),(d.low-pc).abs()],axis=1).max(axis=1)
+    return tr.ewm(alpha=1/n,adjust=False).mean()
+
 def adx(d,n=14):
- up=d.high.diff();dn=-d.low.diff();pdm=up.where((up>dn)&(up>0),0.0);mdm=dn.where((dn>up)&(dn>0),0.0);pc=d.close.shift();tr=pd.concat([(d.high-d.low).abs(),(d.high-pc).abs(),(d.low-pc).abs()],axis=1).max(axis=1);a=tr.ewm(alpha=1/n,adjust=False).mean().replace(0,np.nan);p=100*pdm.ewm(alpha=1/n,adjust=False).mean()/a;m=100*mdm.ewm(alpha=1/n,adjust=False).mean()/a;dx=100*(p-m).abs()/(p+m).replace(0,np.nan);return dx.ewm(alpha=1/n,adjust=False).mean().fillna(0),p.fillna(0),m.fillna(0)
+    up=d.high.diff()
+    dn=-d.low.diff()
+    pdm=up.where((up>dn)&(up>0),0.0)
+    mdm=dn.where((dn>up)&(dn>0),0.0)
+    pc=d.close.shift()
+    tr=pd.concat([(d.high-d.low).abs(),(d.high-pc).abs(),(d.low-pc).abs()],axis=1).max(axis=1)
+    a=tr.ewm(alpha=1/n,adjust=False).mean().replace(0,np.nan)
+    p=100*pdm.ewm(alpha=1/n,adjust=False).mean()/a
+    m=100*mdm.ewm(alpha=1/n,adjust=False).mean()/a
+    dx=100*(p-m).abs()/(p+m).replace(0,np.nan)
+    return dx.ewm(alpha=1/n,adjust=False).mean().fillna(0),p.fillna(0),m.fillna(0)
+
 def fetch(ticker,tf):
- period,interval={'1d':('5y','1d'),'4h':('730d','60m'),'1h':('730d','60m')}[tf];d=yf.download(ticker,period=period,interval=interval,auto_adjust=True,progress=False)
- if d.empty: raise RuntimeError(f'Geen data voor {ticker}')
- if isinstance(d.columns,pd.MultiIndex): d.columns=d.columns.get_level_values(0)
- d=d.rename(columns=str.lower)
- for c in ['open','high','low','close','volume']:
-  if c not in d.columns:d[c]=0.0
- d=d[['open','high','low','close','volume']].dropna(subset=['open','high','low','close'])
- if tf=='4h': d=d.resample('4h').agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'}).dropna()
- return d
+    period,interval={'1d':('5y','1d'),'4h':('730d','60m'),'1h':('730d','60m')}[tf]
+    d=yf.download(ticker,period=period,interval=interval,auto_adjust=True,progress=False)
+    if d.empty:
+        raise RuntimeError(f'Geen data voor {ticker}')
+    if isinstance(d.columns,pd.MultiIndex):
+        d.columns=d.columns.get_level_values(0)
+    d=d.rename(columns=str.lower)
+    for c in ['open','high','low','close','volume']:
+        if c not in d.columns:
+            d[c]=0.0
+    d=d[['open','high','low','close','volume']].dropna(subset=['open','high','low','close'])
+    if tf=='4h':
+        d=d.resample('4h').agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'}).dropna()
+    return d
+
 def enrich(d,p):
- x=d.copy();x['ef']=ema(x.close,p['fast_ema']);x['em']=ema(x.close,p['mid_ema']);x['es']=ema(x.close,p['slow_ema']);x['rsi']=rsi(x.close);x['atr']=atr(x);x['adx'],x['pdi'],x['mdi']=adx(x);x['hh']=x.high.shift().rolling(20).max();x['ll']=x.low.shift().rolling(20).min();x['regmid']=ema(x.close,max(p['mid_ema']*2,p['mid_ema']+20));x['regslow']=ema(x.close,max(p['slow_ema'],p['mid_ema']*3));x['bullreg']=(x.regmid>x.regslow)&(x.close>x.regmid);x['bearreg']=(x.regmid<x.regslow)&(x.close<x.regmid);return x
+    x=d.copy()
+    x['ef']=ema(x.close,p['fast_ema'])
+    x['em']=ema(x.close,p['mid_ema'])
+    x['es']=ema(x.close,p['slow_ema'])
+    x['rsi']=rsi(x.close)
+    x['atr']=atr(x)
+    x['adx'],x['pdi'],x['mdi']=adx(x)
+    x['hh']=x.high.shift().rolling(20).max()
+    x['ll']=x.low.shift().rolling(20).min()
+    x['regmid']=ema(x.close,max(p['mid_ema']*2,p['mid_ema']+20))
+    x['regslow']=ema(x.close,max(p['slow_ema'],p['mid_ema']*3))
+    x['bullreg']=(x.regmid>x.regslow)&(x.close>x.regmid)
+    x['bearreg']=(x.regmid<x.regslow)&(x.close<x.regmid)
+    return x
+
 def scores(r):
- L=S=0
- if r.ef>r.em>r.es:L+=2
- if r.ef<r.em<r.es:S+=2
- if r.close>r.ef:L+=1
- if r.close<r.ef:S+=1
- if r.pdi>r.mdi:L+=1
- if r.mdi>r.pdi:S+=1
- if 52<=r.rsi<=74:L+=1
- if 26<=r.rsi<=48:S+=1
- if pd.notna(r.hh) and r.close>r.hh:L+=1
- if pd.notna(r.ll) and r.close<r.ll:S+=1
- if r.bullreg:L+=2
- if r.bearreg:S+=2
- L+=1;S=max(0,S-1)
- return L,S
+    L=S=0
+    if r.ef>r.em>r.es: L+=2
+    if r.ef<r.em<r.es: S+=2
+    if r.close>r.ef: L+=1
+    if r.close<r.ef: S+=1
+    if r.pdi>r.mdi: L+=1
+    if r.mdi>r.pdi: S+=1
+    if 52<=r.rsi<=74: L+=1
+    if 26<=r.rsi<=48: S+=1
+    if pd.notna(r.hh) and r.close>r.hh: L+=1
+    if pd.notna(r.ll) and r.close<r.ll: S+=1
+    if r.bullreg: L+=2
+    if r.bearreg: S+=2
+    L+=1
+    S=max(0,S-1)
+    return L,S
+
 def market_snapshot(asset):
- meta=CFG['portfolio']['assets'][asset];p=CFG['profiles'][meta['profile']];out={}
- for tf in ['1d','4h','1h']:
-  e=enrich(fetch(meta['ticker'],tf),p);r=e.iloc[-1];L,S=scores(r);trend='BULLISH' if L>S and bool(r.bullreg) else ('BEARISH' if S>L and bool(r.bearreg) else 'NEUTRAAL');out[tf]={'trend':trend,'L':int(L),'S':int(S),'adx':float(r.adx),'price':float(r.close),'atr':float(r.atr),'time':str(e.index[-1])}
- return out
+    meta=CFG['portfolio']['assets'][asset]
+    p=CFG['profiles'][meta['profile']]
+    out={}
+    for tf in ['1d','4h','1h']:
+        e=enrich(fetch(meta['ticker'],tf),p)
+        r=e.iloc[-1]
+        L,S=scores(r)
+        trend='BULLISH' if L>S and bool(r.bullreg) else ('BEARISH' if S>L and bool(r.bearreg) else 'NEUTRAAL')
+        out[tf]={
+            'trend':trend,
+            'L':int(L),'S':int(S),
+            'adx':float(r.adx),
+            'rsi':float(r.rsi),
+            'price':float(r.close),
+            'atr':float(r.atr),
+            'ema20':float(r.ef),
+            'ema50':float(r.em),
+            'ema200':float(r.es),
+            'time':str(e.index[-1])
+        }
+    return out
+
 def desired_action(asset,s):
- if s['1d']['trend']=='BULLISH' and s['4h']['trend']=='BULLISH': return 'LONG' if s['1h']['trend'] in ['BULLISH','NEUTRAAL'] else 'WAIT'
- return 'CASH'
-def size_for_risk(capital,price,stop):
- rb=capital*CFG['risk']['risk_per_trade'];u=abs(price-stop);return 0 if u<=0 else max(0,min(rb/u,(capital*CFG['risk']['max_position_fraction'])/price))
+    meta=CFG['portfolio']['assets'][asset]
+    profile=meta['profile']
+    p=CFG['profiles'][profile]
+
+    if profile=='crypto':
+        d=s['1d']; h4=s['4h']; h1=s['1h']
+        bull_regime = (
+            d['trend']=='BULLISH'
+            and d['price']>d['ema200']
+            and d['ema50']>d['ema200']
+            and d['adx']>=p.get('min_adx',18)
+        )
+        confirmation = (
+            h4['trend']=='BULLISH'
+            and h4['adx']>=p.get('min_adx_4h',16)
+            and h4['price']>h4['ema50']
+        )
+        timing = (
+            h1['L']>=h1['S']
+            and p.get('rsi_min_1h',44) <= h1['rsi'] <= p.get('rsi_max_1h',72)
+            and h1['price']>h1['ema20']
+        )
+        return 'LONG' if bull_regime and confirmation and timing else 'CASH'
+
+    if s['1d']['trend']=='BULLISH' and s['4h']['trend']=='BULLISH':
+        return 'LONG' if s['1h']['trend'] in ['BULLISH','NEUTRAAL'] else 'WAIT'
+    return 'CASH'
+
+def size_for_risk(capital,price,stop,risk_multiplier=1.0):
+    rb=capital*CFG['risk']['risk_per_trade']*float(risk_multiplier)
+    u=abs(price-stop)
+    return 0 if u<=0 else max(0,min(rb/u,(capital*CFG['risk']['max_position_fraction'])/price))

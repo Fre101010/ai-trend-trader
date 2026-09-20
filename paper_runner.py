@@ -104,7 +104,7 @@ def run_once(send_daily_summary=False):
         if pos is None and action=="LONG":
             allocation = state["cash"]*meta["allocation_weight"]
             stop = price-p["initial_stop_atr"]*snap["1d"]["atr"]
-            qty = size_for_risk(allocation,price,stop)
+            qty = size_for_risk(allocation,price,stop,meta.get('risk_multiplier',1.0))
             entry = price*(1+slip)
             notional = qty*entry
             entry_fee = notional*fee

@@ -9,15 +9,15 @@ from analytics import (
     max_drawdown_pct, return_since_start_pct, per_market_stats
 )
 
-st.set_page_config(page_title="AI Trend Trader v0.9",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.0",page_icon="📈",layout="wide")
 st.markdown("""<style>
 .block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
 .stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
 div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v0.9")
-st.caption("Persistente paper trading • alerts • performance analytics • dagelijkse Telegram-samenvatting")
+st.title("📈 AI Trend Trader v1.0")
+st.caption("Persistente paper trading • BTC & ETH 24/7 • alerts • performance analytics • dagelijkse Telegram-samenvatting")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
 state,mode=load_state()
@@ -132,6 +132,7 @@ with tabs[2]:
                 "4H":snap["4h"]["trend"],
                 "1H":snap["1h"]["trend"],
                 "ADX 1D":round(snap["1d"]["adx"],1),
+                "RSI 1H":round(snap["1h"]["rsi"],1),
                 "Actie":desired_action(asset,snap)
             })
             bar.progress(i/len(assets))
@@ -168,7 +169,7 @@ with tabs[5]:
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v0.9 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.0 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
