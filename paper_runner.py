@@ -1,7 +1,9 @@
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from trading_core import CFG, market_snapshot, desired_action, size_for_risk
 from storage import load_state, save_state
 from notifier import notify
+from analytics import current_equity, realized_pnl, open_pnl, trade_stats, max_drawdown_pct, return_since_start_pct
 
 def add_event(state, kind, asset, message, extra=None, do_notify=True):
     event = {
@@ -16,16 +18,48 @@ def add_event(state, kind, asset, message, extra=None, do_notify=True):
     if do_notify:
         notify(message)
 
-def run_once():
+def maybe_send_daily_summary(state):
+    now_local = datetime.now(ZoneInfo("Europe/Brussels"))
+    today = now_local.date().isoformat()
+    # Designed to run once in the evening from GitHub Actions.
+    if state.get("last_daily_summary_date") == today:
+        return False
+
+    stats = trade_stats(state)
+    pf = stats["profit_factor"]
+    pf_text = "∞" if pf == float("inf") else f"{pf:.2f}"
+    eq = current_equity(state)
+    msg = (
+        f"📊 AI Trend Trader — dagelijkse paper samenvatting\n"
+        f"Datum: {today}\n"
+        f"Equity: €{eq:,.2f}\n"
+        f"Cash: €{state.get('cash',0):,.2f}\n"
+        f"Open P/L: €{open_pnl(state):,.2f}\n"
+        f"Gerealiseerd P/L: €{realized_pnl(state):,.2f}\n"
+        f"Rendement sinds start: {return_since_start_pct(state):+.2f}%\n"
+        f"Max drawdown: {max_drawdown_pct(state):.2f}%\n"
+        f"Gesloten trades: {stats['count']}\n"
+        f"Winrate: {stats['winrate']:.1f}%\n"
+        f"Profit factor: {pf_text}\n"
+        f"Open posities: {len(state.get('positions',{}))}"
+    )
+    ok,_ = notify(msg)
+    if ok:
+        state["last_daily_summary_date"] = today
+        add_event(state, "DAILY_SUMMARY", "PORTFOLIO", msg, do_notify=False)
+        return True
+    return False
+
+def run_once(send_daily_summary=False):
     state,mode = load_state()
     if not state.get("cash"):
         state["cash"] = float(CFG["starting_cash"])
+    state.setdefault("starting_equity", float(CFG["starting_cash"]))
 
     fee = CFG["execution"]["fee_rate"]
     slip = CFG["execution"]["slippage"]
     positions = state.setdefault("positions", {})
     trades = state.setdefault("trades", [])
-    total_equity = state["cash"]
 
     for asset,meta in CFG["portfolio"]["assets"].items():
         snap = market_snapshot(asset)
@@ -66,8 +100,6 @@ def run_once():
                 add_event(state,"EXIT",asset,msg,trade,True)
                 del positions[asset]
                 pos = None
-            else:
-                total_equity += pos["qty"]*price
 
         if pos is None and action=="LONG":
             allocation = state["cash"]*meta["allocation_weight"]
@@ -84,15 +116,19 @@ def run_once():
                     "trail_stop":stop,"entry_fee":entry_fee,
                     "last_price":price,"unrealized_pnl":0.0
                 }
-                total_equity += qty*price
                 msg = f"🟢 PAPER LONG OPEN — {asset}\nEntry: {entry:.2f}\nInitial stop: {stop:.2f}\nPositiewaarde: €{notional:.2f}"
                 add_event(state,"ENTRY",asset,msg,{"entry":entry,"stop":stop,"qty":qty,"notional":notional},True)
 
-    state["equity_history"].append({
+    total_equity = current_equity(state)
+    state.setdefault("equity_history", []).append({
         "time": datetime.now(timezone.utc).isoformat(),
         "equity": round(total_equity,2)
     })
     state["equity_history"] = state["equity_history"][-2000:]
+
+    if send_daily_summary:
+        maybe_send_daily_summary(state)
+
     mode = save_state(state)
     return state,mode
 

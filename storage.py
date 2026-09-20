@@ -38,7 +38,9 @@ def default_state():
         "trades": [],
         "events": [],
         "equity_history": [],
-        "last_run": None
+        "last_run": None,
+        "last_daily_summary_date": None,
+        "starting_equity": 5000.0
     }
 
 def normalize_state(state):
