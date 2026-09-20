@@ -6,18 +6,19 @@ from paper_runner import run_once
 from notifier import notify
 from analytics import (
     current_equity, realized_pnl, open_pnl, trade_stats,
-    max_drawdown_pct, return_since_start_pct, per_market_stats
+    max_drawdown_pct, return_since_start_pct, per_market_stats,
+    forward_test_table, weekly_summary
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.0.3",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.1",page_icon="📈",layout="wide")
 st.markdown("""<style>
 .block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
 .stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
 div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v1.0.3")
-st.caption("Persistente paper trading • BTC & ETH 24/7 • alerts • performance analytics • dagelijkse Telegram-samenvatting")
+st.title("📈 AI Trend Trader v1.1")
+st.caption("Persistente paper trading • BTC & ETH 24/7 • forward-test monitor • alerts • performance analytics")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
 state,mode=load_state()
@@ -37,7 +38,7 @@ elif discord_ready:
 else:
     st.info("🔕 Meldingen nog niet gekoppeld. Paper trading blijft wel werken.")
 
-tabs=st.tabs(["Dashboard","Instrumenten","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
+tabs=st.tabs(["Dashboard","Instrumenten","Forward test","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
 
 with tabs[0]:
     if st.button("▶️ Update paper portfolio nu",type="primary"):
@@ -146,7 +147,48 @@ with tabs[1]:
         })
     st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
 
+
 with tabs[2]:
+    state,_=load_state()
+    st.subheader("Forward-test monitor")
+    st.caption("Deze monitor beoordeelt alleen de paper-resultaten die vanaf nu werkelijk binnenkomen. De strategie wordt hier niet automatisch aangepast.")
+
+    assets=list(CFG["portfolio"]["assets"].keys())
+    ft=forward_test_table(state, assets)
+    rows=[]
+    for r in ft:
+        pf = r["profit_factor"]
+        pf_text = "∞" if pf == float("inf") else f"{pf:.2f}"
+        milestone = f"{r['next_milestone']} trades" if r["next_milestone"] else "100+ trades"
+        rows.append({
+            "Markt": r["asset"],
+            "Status": r["status"],
+            "Gesloten trades": r["trades"],
+            "Winrate %": round(r["winrate"],1),
+            "Profit factor": pf_text,
+            "Gem. trade €": round(r["avg_trade"],2),
+            "Volgende meetpunt": milestone
+        })
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    st.markdown("#### Meetpunten")
+    st.write("**20 trades** = eerste bruikbare indruk • **50 trades** = sterkere steekproef • **100 trades** = veel betrouwbaarder beeld.")
+    st.info("Een positieve status is geen garantie op toekomstige winst. We gebruiken deze pagina vooral om te vermijden dat we de strategie te snel aanpassen op enkele trades.")
+
+    w=weekly_summary(state)
+    c1,c2,c3,c4=st.columns(4)
+    c1.metric("Portfolio rendement",f"{w['return_pct']:+.2f}%")
+    c2.metric("Max drawdown",f"{w['max_dd']:.2f}%")
+    c3.metric("Gesloten trades",w["trades"])
+    c4.metric("Winrate",f"{w['winrate']:.1f}%")
+
+    c1,c2,c3=st.columns(3)
+    pf=w["profit_factor"]
+    c1.metric("Profit factor","∞" if pf==float("inf") else f"{pf:.2f}")
+    c2.metric("Open P/L",f"€{w['open_pnl']:.2f}")
+    c3.metric("Gerealiseerd P/L",f"€{w['realized_pnl']:.2f}")
+
+with tabs[3]:
     state,_=load_state()
     stats=trade_stats(state)
     c1,c2,c3,c4=st.columns(4)
@@ -171,7 +213,7 @@ with tabs[2]:
     else:
         st.info("Nog geen gesloten trades om per markt te analyseren.")
 
-with tabs[3]:
+with tabs[4]:
     if st.button("🔎 Scan 1D / 4H / 1H",type="primary"):
         out=[]
         assets=list(CFG["portfolio"]["assets"].keys())
@@ -198,7 +240,7 @@ with tabs[3]:
         st.dataframe(st.session_state["scan"],use_container_width=True,hide_index=True)
         st.caption("Je ziet altijd eerst BULLISH / BEARISH / NEUTRAAL. ‘Trading UIT’ betekent dat de scanner wel analyseert, maar geen nieuwe positie opent.")
 
-with tabs[4]:
+with tabs[5]:
     state,_=load_state()
     events=state.get("events",[])
     if not events:
@@ -213,7 +255,7 @@ with tabs[4]:
             e=e[e["kind"]==selected]
         st.dataframe(e[["time","kind","asset","message"]],use_container_width=True,hide_index=True)
 
-with tabs[5]:
+with tabs[6]:
     state,_=load_state()
     trades=state.get("trades",[])
     if not trades:
@@ -222,12 +264,12 @@ with tabs[5]:
         t=pd.DataFrame(trades)
         st.dataframe(t,use_container_width=True,hide_index=True)
 
-with tabs[6]:
+with tabs[7]:
     st.write("Automatische meldingen gaan naar Telegram bij PAPER LONG, trailing-stop update en PAPER EXIT.")
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.0.3 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.1 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
