@@ -31,16 +31,13 @@ def _supabase():
     from supabase import create_client
     return create_client(url, key)
 
-def default_state():
+def portfolio_template(cash=0.0):
     return {
-        "cash": 5000.0,
+        "cash": float(cash),
         "positions": {},
         "trades": [],
         "events": [],
         "equity_history": [],
-        "last_run": None,
-        "last_daily_summary_date": None,
-        "starting_equity": 5000.0,
         "enabled_assets": {},
         "automation": {
             "mode": "auto_paper",
@@ -52,14 +49,63 @@ def default_state():
             "require_stop": True,
             "max_portfolio_heat_pct": 2.0,
             "min_cash_reserve_pct": 12.5,
-            "account_capital": 5000.0
+            "account_capital": float(cash),
         }
     }
 
+def default_state():
+    return {
+        "version": 2,
+        "portfolios": {
+            "swing": portfolio_template(5000.0),
+            "active": portfolio_template(0.0),
+        },
+        "transfers": [],
+        "last_run": None,
+        "last_daily_summary_date": None,
+    }
+
+def _legacy_to_v2(state):
+    # Existing v1.x portfolio becomes Swing. Active starts at zero.
+    swing = portfolio_template(float(state.get("cash", 5000.0)))
+    for key in ["cash","positions","trades","events","equity_history","enabled_assets","automation"]:
+        if key in state:
+            swing[key] = state[key]
+    swing["automation"].setdefault("account_capital", 5000.0)
+
+    return {
+        "version": 2,
+        "portfolios": {
+            "swing": swing,
+            "active": portfolio_template(0.0),
+        },
+        "transfers": [],
+        "last_run": state.get("last_run"),
+        "last_daily_summary_date": state.get("last_daily_summary_date"),
+    }
+
 def normalize_state(state):
-    base = default_state()
-    for k,v in base.items():
-        state.setdefault(k, v)
+    if not isinstance(state, dict):
+        return default_state()
+
+    if "portfolios" not in state:
+        state = _legacy_to_v2(state)
+
+    state.setdefault("version", 2)
+    state.setdefault("transfers", [])
+    state.setdefault("last_run", None)
+    state.setdefault("last_daily_summary_date", None)
+    state.setdefault("portfolios", {})
+
+    for pid, default_cash in [("swing",5000.0),("active",0.0)]:
+        p = state["portfolios"].setdefault(pid, portfolio_template(default_cash))
+        base = portfolio_template(default_cash)
+        for k,v in base.items():
+            p.setdefault(k,v)
+        # ensure automation keys
+        for k,v in base["automation"].items():
+            p["automation"].setdefault(k,v)
+
     return state
 
 def load_state():

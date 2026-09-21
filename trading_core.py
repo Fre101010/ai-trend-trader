@@ -19,10 +19,8 @@ def atr(d,n=14):
     return tr.ewm(alpha=1/n,adjust=False).mean()
 
 def adx(d,n=14):
-    up=d.high.diff()
-    dn=-d.low.diff()
-    pdm=up.where((up>dn)&(up>0),0.0)
-    mdm=dn.where((dn>up)&(dn>0),0.0)
+    up=d.high.diff(); dn=-d.low.diff()
+    pdm=up.where((up>dn)&(up>0),0.0); mdm=dn.where((dn>up)&(dn>0),0.0)
     pc=d.close.shift()
     tr=pd.concat([(d.high-d.low).abs(),(d.high-pc).abs(),(d.low-pc).abs()],axis=1).max(axis=1)
     a=tr.ewm(alpha=1/n,adjust=False).mean().replace(0,np.nan)
@@ -32,7 +30,12 @@ def adx(d,n=14):
     return dx.ewm(alpha=1/n,adjust=False).mean().fillna(0),p.fillna(0),m.fillna(0)
 
 def fetch(ticker,tf):
-    period,interval={'1d':('5y','1d'),'4h':('730d','60m'),'1h':('730d','60m')}[tf]
+    period,interval={
+        '1d':('5y','1d'),
+        '4h':('730d','60m'),
+        '1h':('730d','60m'),
+        '15m':('60d','15m')
+    }[tf]
     d=yf.download(ticker,period=period,interval=interval,auto_adjust=True,progress=False)
     if d.empty:
         raise RuntimeError(f'Geen data voor {ticker}')
@@ -40,8 +43,7 @@ def fetch(ticker,tf):
         d.columns=d.columns.get_level_values(0)
     d=d.rename(columns=str.lower)
     for c in ['open','high','low','close','volume']:
-        if c not in d.columns:
-            d[c]=0.0
+        if c not in d.columns: d[c]=0.0
     d=d[['open','high','low','close','volume']].dropna(subset=['open','high','low','close'])
     if tf=='4h':
         d=d.resample('4h').agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'}).dropna()
@@ -49,14 +51,9 @@ def fetch(ticker,tf):
 
 def enrich(d,p):
     x=d.copy()
-    x['ef']=ema(x.close,p['fast_ema'])
-    x['em']=ema(x.close,p['mid_ema'])
-    x['es']=ema(x.close,p['slow_ema'])
-    x['rsi']=rsi(x.close)
-    x['atr']=atr(x)
-    x['adx'],x['pdi'],x['mdi']=adx(x)
-    x['hh']=x.high.shift().rolling(20).max()
-    x['ll']=x.low.shift().rolling(20).min()
+    x['ef']=ema(x.close,p['fast_ema']); x['em']=ema(x.close,p['mid_ema']); x['es']=ema(x.close,p['slow_ema'])
+    x['rsi']=rsi(x.close); x['atr']=atr(x); x['adx'],x['pdi'],x['mdi']=adx(x)
+    x['hh']=x.high.shift().rolling(20).max(); x['ll']=x.low.shift().rolling(20).min()
     x['regmid']=ema(x.close,max(p['mid_ema']*2,p['mid_ema']+20))
     x['regslow']=ema(x.close,max(p['slow_ema'],p['mid_ema']*3))
     x['bullreg']=(x.regmid>x.regslow)&(x.close>x.regmid)
@@ -65,144 +62,61 @@ def enrich(d,p):
 
 def scores(r):
     L=S=0
-    if r.ef>r.em>r.es: L+=2
-    if r.ef<r.em<r.es: S+=2
-    if r.close>r.ef: L+=1
-    if r.close<r.ef: S+=1
-    if r.pdi>r.mdi: L+=1
-    if r.mdi>r.pdi: S+=1
-    if 52<=r.rsi<=74: L+=1
-    if 26<=r.rsi<=48: S+=1
-    if pd.notna(r.hh) and r.close>r.hh: L+=1
-    if pd.notna(r.ll) and r.close<r.ll: S+=1
-    if r.bullreg: L+=2
-    if r.bearreg: S+=2
-    L+=1
-    S=max(0,S-1)
+    if r.ef>r.em>r.es:L+=2
+    if r.ef<r.em<r.es:S+=2
+    if r.close>r.ef:L+=1
+    if r.close<r.ef:S+=1
+    if r.pdi>r.mdi:L+=1
+    if r.mdi>r.pdi:S+=1
+    if 52<=r.rsi<=74:L+=1
+    if 26<=r.rsi<=48:S+=1
+    if pd.notna(r.hh) and r.close>r.hh:L+=1
+    if pd.notna(r.ll) and r.close<r.ll:S+=1
+    if r.bullreg:L+=2
+    if r.bearreg:S+=2
+    L+=1; S=max(0,S-1)
     return L,S
 
-def market_snapshot(asset):
+def market_snapshot(asset, mode="swing"):
     meta=CFG['portfolio']['assets'][asset]
     p=CFG['profiles'][meta['profile']]
+    tfs=['1d','4h','1h'] if mode=='swing' else ['4h','1h','15m']
     out={}
-    for tf in ['1d','4h','1h']:
-        e=enrich(fetch(meta['ticker'],tf),p)
-        r=e.iloc[-1]
-        L,S=scores(r)
+    for tf in tfs:
+        e=enrich(fetch(meta['ticker'],tf),p); r=e.iloc[-1]; L,S=scores(r)
         trend='BULLISH' if L>S and bool(r.bullreg) else ('BEARISH' if S>L and bool(r.bearreg) else 'NEUTRAAL')
         out[tf]={
-            'trend':trend,
-            'L':int(L),'S':int(S),
-            'adx':float(r.adx),
-            'rsi':float(r.rsi),
-            'price':float(r.close),
-            'atr':float(r.atr),
-            'ema20':float(r.ef),
-            'ema50':float(r.em),
-            'ema200':float(r.es),
-            'time':str(e.index[-1])
+            'trend':trend,'L':int(L),'S':int(S),'adx':float(r.adx),'rsi':float(r.rsi),
+            'price':float(r.close),'atr':float(r.atr),'ema20':float(r.ef),
+            'ema50':float(r.em),'ema200':float(r.es),'time':str(e.index[-1])
         }
     return out
 
-def desired_action(asset,s):
+def desired_action(asset,s,mode="swing"):
     meta=CFG['portfolio']['assets'][asset]
+    p=CFG['profiles'][meta['profile']]
     profile=meta['profile']
-    p=CFG['profiles'][profile]
+
+    if mode=='active':
+        h4=s['4h']; h1=s['1h']; m15=s['15m']
+        regime=(h4['trend']=='BULLISH' and h4['price']>h4['ema50'] and h4['adx']>=max(16,p.get('min_adx',18)-2))
+        confirm=(h1['trend']=='BULLISH' and h1['price']>h1['ema20'] and h1['L']>=h1['S'])
+        timing=(m15['L']>=m15['S'] and 45<=m15['rsi']<=72 and m15['price']>m15['ema20'])
+        return 'LONG' if regime and confirm and timing else 'CASH'
 
     if profile=='crypto':
         d=s['1d']; h4=s['4h']; h1=s['1h']
-        bull_regime = (
-            d['trend']=='BULLISH'
-            and d['price']>d['ema200']
-            and d['ema50']>d['ema200']
-            and d['adx']>=p.get('min_adx',18)
-        )
-        confirmation = (
-            h4['trend']=='BULLISH'
-            and h4['adx']>=p.get('min_adx_4h',16)
-            and h4['price']>h4['ema50']
-        )
-        timing = (
-            h1['L']>=h1['S']
-            and p.get('rsi_min_1h',44) <= h1['rsi'] <= p.get('rsi_max_1h',72)
-            and h1['price']>h1['ema20']
-        )
-        return 'LONG' if bull_regime and confirmation and timing else 'CASH'
+        bull=(d['trend']=='BULLISH' and d['price']>d['ema200'] and d['ema50']>d['ema200'] and d['adx']>=p.get('min_adx',18))
+        conf=(h4['trend']=='BULLISH' and h4['adx']>=p.get('min_adx_4h',16) and h4['price']>h4['ema50'])
+        timing=(h1['L']>=h1['S'] and p.get('rsi_min_1h',44)<=h1['rsi']<=p.get('rsi_max_1h',72) and h1['price']>h1['ema20'])
+        return 'LONG' if bull and conf and timing else 'CASH'
 
     if s['1d']['trend']=='BULLISH' and s['4h']['trend']=='BULLISH':
         return 'LONG' if s['1h']['trend'] in ['BULLISH','NEUTRAAL'] else 'WAIT'
     return 'CASH'
 
-def size_for_risk(capital,price,stop,risk_multiplier=1.0):
-    rb=capital*CFG['risk']['risk_per_trade']*float(risk_multiplier)
+def size_for_risk(capital,price,stop,risk_multiplier=1.0,risk_pct=None):
+    rp = CFG['risk']['risk_per_trade'] if risk_pct is None else float(risk_pct)/100.0
+    rb=capital*rp*float(risk_multiplier)
     u=abs(price-stop)
     return 0 if u<=0 else max(0,min(rb/u,(capital*CFG['risk']['max_position_fraction'])/price))
-
-
-
-
-def _mark(v):
-    return "✓" if v else "✗"
-
-def action_details(asset,s):
-    meta=CFG['portfolio']['assets'][asset]
-    profile=meta['profile']
-    p=CFG['profiles'][profile]
-
-    d=s['1d']; h4=s['4h']; h1=s['1h']
-
-    if profile=='crypto':
-        c1 = d['price'] > d['ema200']
-        c2 = d['ema50'] > d['ema200']
-        c3 = d['adx'] >= p.get('min_adx',18)
-        bull_regime = d['trend']=='BULLISH' and c1 and c2 and c3
-
-        c4 = h4['trend']=='BULLISH'
-        c5 = h4['adx'] >= p.get('min_adx_4h',16)
-        c6 = h4['price'] > h4['ema50']
-        confirmation = c4 and c5 and c6
-
-        rsi_min=p.get('rsi_min_1h',44)
-        rsi_max=p.get('rsi_max_1h',72)
-        c7 = h1['L'] >= h1['S']
-        c8 = rsi_min <= h1['rsi'] <= rsi_max
-        c9 = h1['price'] > h1['ema20']
-        timing = c7 and c8 and c9
-
-        action = "LONG" if bull_regime and confirmation and timing else "CASH"
-
-        return {
-            "action": action,
-            "reason": (
-                f"1D {d['trend']} | 4H {h4['trend']} | 1H {h1['trend']} | "
-                f"Actie {action}"
-            ),
-            "detail_1d": (
-                f"{d['trend']} — koers>EMA200 {_mark(c1)} | "
-                f"EMA50>EMA200 {_mark(c2)} | ADX {d['adx']:.1f}≥{p.get('min_adx',18)} {_mark(c3)}"
-            ),
-            "detail_4h": (
-                f"{h4['trend']} — trend bullish {_mark(c4)} | "
-                f"koers>EMA50 {_mark(c6)} | ADX {h4['adx']:.1f}≥{p.get('min_adx_4h',16)} {_mark(c5)}"
-            ),
-            "detail_1h": (
-                f"{h1['trend']} — longscore≥shortscore {_mark(c7)} | "
-                f"RSI {h1['rsi']:.1f} in {rsi_min}-{rsi_max} {_mark(c8)} | "
-                f"koers>EMA20 {_mark(c9)}"
-            ),
-            "checks": {
-                "1d_bull_regime": bull_regime,
-                "4h_confirmation": confirmation,
-                "1h_timing": timing,
-            }
-        }
-
-    action = desired_action(asset,s)
-    return {
-        "action": action,
-        "reason": f"1D {d['trend']} | 4H {h4['trend']} | 1H {h1['trend']} | Actie {action}",
-        "detail_1d": f"{d['trend']} — ADX {d['adx']:.1f} | RSI {d['rsi']:.1f}",
-        "detail_4h": f"{h4['trend']} — ADX {h4['adx']:.1f} | RSI {h4['rsi']:.1f}",
-        "detail_1h": f"{h1['trend']} — ADX {h1['adx']:.1f} | RSI {h1['rsi']:.1f}",
-        "checks": {}
-    }
