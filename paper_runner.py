@@ -225,13 +225,26 @@ def run_portfolio(p, portfolio_id):
     })
     p["equity_history"]=p["equity_history"][-2000:]
 
-def run_once():
+def run_once(target="both"):
     state,mode=load_state()
-    for pid in ["swing","active"]:
+
+    if target=="swing":
+        targets=["swing"]
+    elif target=="active":
+        targets=["active"]
+    else:
+        targets=["swing","active"]
+
+    for pid in targets:
         run_portfolio(state["portfolios"][pid],pid)
+
     mode=save_state(state)
     return state,mode
 
 if __name__=="__main__":
-    s,m=run_once()
-    print("paper run complete",m)
+    import sys
+    target=sys.argv[1].lower() if len(sys.argv)>1 else "both"
+    if target not in ["swing","active","both"]:
+        target="both"
+    s,m=run_once(target)
+    print(f"paper run complete ({target})",m)

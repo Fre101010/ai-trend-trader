@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.3.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.3.1.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -143,7 +143,7 @@ st.markdown("""
     <div class="status"><div class="status-ico">🛡️</div><div><div class="status-title">PAPER ONLY</div><div class="status-sub">Live handelen uitgeschakeld</div></div></div>
     <div class="status"><div class="status-ico">💾</div><div><div class="status-title">SUPABASE</div><div class="status-sub">Persistente opslag actief</div></div></div>
     <div class="status"><div class="status-ico">📈</div><div><div class="status-title">SWING</div><div class="status-sub">1D / 4H / 1H</div></div></div>
-    <div class="status"><div class="status-ico">⚡</div><div><div class="status-title">ACTIVE</div><div class="status-sub">4H / 1H / 15m</div></div></div>
+    <div class="status"><div class="status-ico">⚡</div><div><div class="status-title">ACTIVE</div><div class="status-sub">4H / 1H / 15m • scan elke 5 min</div></div></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -440,7 +440,7 @@ with tabs[0]:
         '<div class="section-sub">Werk beide paperportefeuilles bij met de nieuwste marktdata.</div></div>',
         unsafe_allow_html=True,
     )
-    if st.button("▶️ Beide portefeuilles nu bijwerken", type="primary"):
+    if st.button("▶️ Beide portefeuilles nu extra controleren", type="primary"):
         with st.spinner("Swing en Active analyseren..."):
             state, store_mode = run_once()
         st.success("Beide portefeuilles zijn bijgewerkt.")
@@ -477,7 +477,7 @@ with tabs[2]:
 
     st.markdown(
         '<div class="section-head"><div class="section-title">Active Portfolio</div>'
-        '<div class="section-sub">4H / 1H / 15m — meer signalen, kortere trades en LONG + SHORT.</div></div>',
+        '<div class="section-sub">4H / 1H / 15m — LONG + SHORT. Automatische controle elke 5 minuten op afgesloten candles.</div></div>',
         unsafe_allow_html=True,
     )
     render_kpis([
@@ -633,6 +633,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.3 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.3.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

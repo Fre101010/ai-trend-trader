@@ -83,12 +83,18 @@ def market_snapshot(asset, mode="swing"):
     tfs=['1d','4h','1h'] if mode=='swing' else ['4h','1h','15m']
     out={}
     for tf in tfs:
-        e=enrich(fetch(meta['ticker'],tf),p); r=e.iloc[-1]; L,S=scores(r)
+        e=enrich(fetch(meta['ticker'],tf),p)
+        # Intraday Yahoo data can contain a still-forming candle.
+        # For signal generation we intentionally use the latest CLOSED candle
+        # so a valid setup is stable and cannot disappear mid-candle.
+        signal_row = -2 if tf in ['15m','1h','4h'] and len(e) >= 2 else -1
+        r=e.iloc[signal_row]
+        L,S=scores(r)
         trend='BULLISH' if L>S and bool(r.bullreg) else ('BEARISH' if S>L and bool(r.bearreg) else 'NEUTRAAL')
         out[tf]={
             'trend':trend,'L':int(L),'S':int(S),'adx':float(r.adx),'rsi':float(r.rsi),
             'price':float(r.close),'atr':float(r.atr),'ema20':float(r.ef),
-            'ema50':float(r.em),'ema200':float(r.es),'time':str(e.index[-1])
+            'ema50':float(r.em),'ema200':float(r.es),'time':str(e.index[signal_row])
         }
     return out
 
