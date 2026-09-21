@@ -12,215 +12,48 @@ from analytics import (
     forward_test_table, weekly_summary, marked_portfolio_values
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.3",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.3.2",page_icon="📈",layout="wide")
 st.markdown("""<style>
-:root{
-  --nav:#0e2744;
-  --nav2:#163a63;
-  --accent:#2f80ed;
-  --text:#0f2747;
-  --muted:#6f7f92;
-  --card:#ffffff;
-  --soft:#f5f8fc;
-  --line:#e7edf4;
-  --green:#16a36a;
-  --red:#e24a4a;
-}
-
-html, body, [class*="css"]{
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-.stApp{
-  background:
-    linear-gradient(180deg,#eef5fb 0px,#f8fbfe 210px,#ffffff 520px);
-  color:var(--text);
-}
-
-.block-container{
-  padding-top:1rem;
-  padding-bottom:4rem;
-  max-width:1380px;
-}
-
-h1,h2,h3{
-  color:var(--text);
-  letter-spacing:-0.02em;
-}
-
-h1{
-  font-size:2.4rem !important;
-  font-weight:800 !important;
-  margin-bottom:.25rem !important;
-}
-
-[data-testid="stHeader"]{
-  background:linear-gradient(90deg,var(--nav),var(--nav2));
-  height:3.2rem;
-}
-
-[data-testid="stToolbar"]{
-  right:.75rem;
-}
-
-div[data-testid="stTabs"] button{
-  min-height:44px;
-  border-radius:10px 10px 0 0;
-  padding:.55rem .85rem;
-  font-weight:650;
-  color:#334b66;
-}
-
-div[data-testid="stTabs"] button[aria-selected="true"]{
-  color:var(--accent);
-  border-bottom:3px solid var(--accent);
-  background:#edf5ff;
-}
-
-div[data-testid="stMetric"]{
-  background:rgba(255,255,255,.94);
-  border:1px solid var(--line);
-  border-radius:18px;
-  padding:14px 16px;
-  box-shadow:0 6px 24px rgba(25,59,92,.06);
-  min-height:118px;
-}
-
-div[data-testid="stMetric"] label{
-  color:#52677e !important;
-  font-weight:650 !important;
-}
-
-div[data-testid="stMetricValue"]{
-  color:var(--text);
-  font-weight:750;
-}
-
-[data-testid="stDataFrame"]{
-  border:1px solid var(--line);
-  border-radius:16px;
-  overflow:hidden;
-  box-shadow:0 4px 18px rgba(25,59,92,.05);
-}
-
-.stButton>button{
-  width:100%;
-  min-height:46px;
-  border-radius:12px;
-  font-weight:700;
-  border:1px solid #dce7f2;
-  transition:.18s ease;
-}
-
-.stButton>button[kind="primary"]{
-  background:linear-gradient(135deg,#2f80ed,#1f6bd0);
-  color:#fff;
-  border:none;
-}
-
-.stButton>button:hover{
-  transform:translateY(-1px);
-}
-
-div[data-testid="stAlert"]{
-  border-radius:14px;
-  border:1px solid rgba(110,140,170,.18);
-}
-
-section[data-testid="stSidebar"]{
-  background:#f7fafd;
-}
-
-.premium-hero{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:20px;
-  padding:20px 22px;
-  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,247,255,.96));
-  border:1px solid #dfe9f3;
-  border-radius:22px;
-  box-shadow:0 10px 30px rgba(25,59,92,.07);
-  margin-bottom:14px;
-}
-.hero-title{
-  font-size:2.45rem;
-  font-weight:850;
-  color:#102a4a;
-  line-height:1.05;
-}
-.hero-sub{
-  margin-top:7px;
-  color:#627790;
-  font-size:1rem;
-}
-.status-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-top:14px;
-}
-.status-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  background:#fff;
-  border:1px solid #dfe8f1;
-  border-radius:12px;
-  padding:10px 12px;
-  color:#28425e;
-  font-size:.88rem;
-  font-weight:650;
-}
-.status-pill.good{
-  background:#effaf5;
-  border-color:#d7f1e4;
-  color:#147a50;
-}
-.status-pill.info{
-  background:#eff6ff;
-  border-color:#dceaff;
-  color:#215eaa;
-}
-.section-card{
-  background:#fff;
-  border:1px solid var(--line);
-  border-radius:18px;
-  padding:18px;
-  box-shadow:0 6px 22px rgba(25,59,92,.05);
-  margin:10px 0 16px 0;
-}
-.section-title{
-  font-size:1.15rem;
-  font-weight:760;
-  color:#173453;
-  margin-bottom:2px;
-}
-.section-sub{
-  color:#7a8999;
-  font-size:.9rem;
-  margin-bottom:10px;
-}
-.mini-badge{
-  display:inline-block;
-  border-radius:999px;
-  padding:4px 9px;
-  font-size:.75rem;
-  font-weight:750;
-  background:#edf3f8;
-  color:#4e6174;
-}
-@media (max-width: 900px){
-  .block-container{padding-left:.8rem;padding-right:.8rem;}
-  .premium-hero{flex-direction:column;}
-  .hero-title{font-size:2rem;}
-  div[data-testid="stMetric"]{min-height:105px;}
-}
+:root{--nav:#0f2845;--nav2:#173c67;--blue:#2f80ed;--green:#19a76f;--red:#ee5661;--ink:#102a49;--line:#e3ebf3;}
+.stApp{background:linear-gradient(180deg,#eef5fb 0,#f8fbff 220px,#fff 620px);color:var(--ink);}
+.block-container{max-width:1420px;padding-top:.9rem;padding-bottom:4rem}
+[data-testid="stHeader"]{background:linear-gradient(90deg,var(--nav),var(--nav2))}
+div[data-testid="stTabs"] button{font-weight:700;color:#445f79;padding:.6rem .9rem}
+div[data-testid="stTabs"] button[aria-selected="true"]{color:var(--blue);background:#edf5ff;border-radius:10px 10px 0 0;border-bottom:3px solid var(--blue)}
+.stButton>button{border-radius:12px;min-height:46px;font-weight:750;border:1px solid #dce7f2}
+.stButton>button[kind="primary"]{background:linear-gradient(135deg,#3388ee,#1d6ed3);color:white;border:0}
+[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 5px 22px rgba(24,59,95,.06)}
+.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;background:linear-gradient(135deg,#fff,#eef6ff);border:1px solid #dde9f5;border-radius:22px;padding:22px 24px;box-shadow:0 10px 30px rgba(24,59,95,.08);margin-bottom:14px}
+.hero-title{font-size:2.35rem;font-weight:850;line-height:1.05;color:#102a49}
+.hero-sub{font-size:1rem;color:#667d94;margin-top:7px}
+.status-wrap{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.status{border-radius:11px;padding:9px 11px;font-size:.82rem;font-weight:750;background:#fff;border:1px solid #dfe8f1;color:#35506d}
+.status.good{background:#effaf5;color:#147d52;border-color:#d6efe2}
+.status.info{background:#eef6ff;color:#2561a8;border-color:#d8e9ff}
+.hero-side{text-align:right;font-size:.84rem;color:#72879c;line-height:1.55}
+.section-head{margin:18px 0 10px}
+.section-title{font-size:1.15rem;font-weight:800;color:#173654}
+.section-sub{font-size:.88rem;color:#7a8a9a;margin-top:2px}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:13px;margin:12px 0 14px}
+.kpi{background:white;border:1px solid var(--line);border-radius:18px;padding:15px;min-height:125px;box-shadow:0 7px 25px rgba(24,59,95,.07)}
+.kpi.green{border-top:4px solid var(--green)} .kpi.red{border-top:4px solid var(--red)} .kpi.blue{border-top:4px solid var(--blue)}
+.kpi-head{display:flex;align-items:center;gap:8px;color:#587087;font-size:.78rem;font-weight:750}
+.kpi-icon{width:32px;height:32px;border-radius:10px;background:#edf5ff;display:flex;align-items:center;justify-content:center;font-size:17px}
+.kpi-value{font-size:1.62rem;font-weight:850;color:var(--ink);margin-top:12px;line-height:1.05}
+.kpi-note{font-size:.77rem;margin-top:8px;color:#7c8d9f}
+.kpi.green .kpi-note{color:#168b5d}.kpi.red .kpi-note{color:#da4651}
+.mini-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:0 0 17px}
+.mini{display:flex;gap:11px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 5px 18px rgba(24,59,95,.05)}
+.mini-icon{width:39px;height:39px;border-radius:11px;background:#f0f6fc;display:flex;align-items:center;justify-content:center;font-size:19px}
+.mini-label{font-size:.75rem;color:#718497;font-weight:700}
+.mini-value{font-size:1.28rem;font-weight:850;color:#102a49;margin-top:2px}
+.meta-line{font-size:.78rem;color:#8392a2;margin:7px 0}
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.hero{flex-direction:column}.hero-side{text-align:left}.hero-title{font-size:1.9rem}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi-value{font-size:1.35rem}}
 </style>""",unsafe_allow_html=True)
 
-
-
-
+st.caption("Trading companion • signalen • bevestigen • Auto Paper • voorbereid op Auto Live")
+st.caption("Laatste koers en open P/L gebruiken de recentste beschikbare 1H-prijs; trendlogica blijft 1D/4H/1H.")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
 state,mode=load_state()
@@ -253,10 +86,32 @@ def latest_live_prices(state):
             pass
     return prices
 
+
+st.markdown("""
+<div class="hero">
+  <div>
+    <div class="hero-title">📊 AI Trend Trader</div>
+    <div class="hero-sub">Slimmer traden. Rustiger volgen. Multi-asset trend trading met automatische paper-uitvoering en risicobewaking.</div>
+    <div class="status-wrap">
+      <span class="status good">🛡️ PAPER ONLY</span>
+      <span class="status good">💾 Supabase actief</span>
+      <span class="status info">🔔 Telegram actief</span>
+    </div>
+  </div>
+  <div class="hero-side">
+    <b>AI Trend Trader v1.3.2</b><br>
+    1D • 4H • 1H analyse<br>
+    Risk Guard actief
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
 tabs=st.tabs(["Dashboard","Automatisering","Instrumenten","Forward test","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
 
+
 with tabs[0]:
-    st.markdown('<div class="section-title">Dashboard</div><div class="section-sub">Overzicht van je portefeuille, actuele waardering en open posities.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-head"><div class="section-title">Dashboard</div><div class="section-sub">Actuele portefeuille, prestaties en open posities in één overzicht.</div></div>', unsafe_allow_html=True)
+
     if st.button("▶️ Update paper portfolio nu",type="primary"):
         with st.spinner("Markten scannen en paper portfolio bijwerken..."):
             state,mode=run_once()
@@ -264,42 +119,68 @@ with tabs[0]:
 
     state,_=load_state()
     auto=normalize_automation(state)
-    st.caption(f"Execution mode: **{MODES.get(auto.get('mode','auto_paper'), auto.get('mode'))}**" + (" • 🛑 NOODSTOP ACTIEF" if auto.get("emergency_stop") else ""))
     positions=state.get("positions",{})
-    trades=state.get("trades",[])
     hist=state.get("equity_history",[])
 
     with st.spinner("Actuele portefeuillewaarden ophalen..."):
         live_prices=latest_live_prices(state)
     marks=marked_portfolio_values(state, live_prices)
 
-    c1,c2,c3,c4=st.columns(4)
-    c1.metric("Equity",f"€{marks['equity']:,.2f}",f"{marks['total_return_pct']:+.2f}%")
-    c2.metric("Paper cash",f"€{marks['cash']:,.2f}")
-    c3.metric("Open P/L",f"€{marks['open_pnl']:,.2f}")
-    c4.metric("Gerealiseerd P/L",f"€{marks['realized_pnl']:,.2f}")
-
-    c1,c2=st.columns(2)
-    c1.metric("Waarde open posities",f"€{marks['market_value']:,.2f}")
-    c2.metric("Totale P/L sinds start",f"€{marks['equity']-float(state.get('starting_equity',5000.0)):,.2f}")
-
-    c1,c2,c3,c4=st.columns(4)
     stats=trade_stats(state)
-    pf=stats["profit_factor"]
-    pf_text="∞" if pf==float("inf") else f"{pf:.2f}"
-    c1.metric("Open posities",len(positions))
-    c2.metric("Gesloten trades",stats["count"])
-    c3.metric("Winrate",f"{stats['winrate']:.1f}%")
-    c4.metric("Max drawdown",f"{max_drawdown_pct(state):.2f}%")
+    total_pl=marks["equity"]-float(state.get("starting_equity",5000.0))
+    dd=max_drawdown_pct(state)
 
-    st.caption(f"Laatste run: {state.get('last_run') or 'nog niet uitgevoerd'}")
-    st.caption("Dashboardwaarden worden bij elke herlaadbeurt opnieuw gewaardeerd met de recentste beschikbare 1H-koers.")
+    def money(v):
+        return f"€{v:,.2f}"
+
+    def tone(v):
+        return "green" if v>0 else ("red" if v<0 else "blue")
+
+    cards=[
+        ("Equity",money(marks["equity"]),f"{marks['total_return_pct']:+.2f}% sinds start",tone(marks["total_return_pct"]),"📈"),
+        ("Paper cash",money(marks["cash"]),"Beschikbaar saldo","blue","💶"),
+        ("Open P/L",money(marks["open_pnl"]),"Niet gerealiseerd",tone(marks["open_pnl"]),"📊"),
+        ("Gerealiseerde P/L",money(marks["realized_pnl"]),"Gesloten trades",tone(marks["realized_pnl"]),"🏆"),
+        ("Waarde open posities",money(marks["market_value"]),"Mark-to-market","blue","💼"),
+        ("Totale P/L sinds start",money(total_pl),f"{marks['total_return_pct']:+.2f}%",tone(total_pl),"🎯"),
+    ]
+
+    html='<div class="kpi-grid">'
+    for title,value,note,t,icon in cards:
+        html += (
+            f'<div class="kpi {t}">'
+            f'<div class="kpi-head"><span class="kpi-icon">{icon}</span>{title}</div>'
+            f'<div class="kpi-value">{value}</div>'
+            f'<div class="kpi-note">{note}</div>'
+            f'</div>'
+        )
+    html+='</div>'
+    st.markdown(html,unsafe_allow_html=True)
+
+    minis=[
+        ("Open posities",len(positions),"📚"),
+        ("Gesloten trades",stats["count"],"✅"),
+        ("Winrate",f"{stats['winrate']:.1f}%","🎯"),
+        ("Max drawdown",f"{dd:.2f}%","🛡️"),
+    ]
+    html='<div class="mini-grid">'
+    for label,value,icon in minis:
+        html += (
+            f'<div class="mini"><div class="mini-icon">{icon}</div>'
+            f'<div><div class="mini-label">{label}</div><div class="mini-value">{value}</div></div></div>'
+        )
+    html+='</div>'
+    st.markdown(html,unsafe_allow_html=True)
+
+    meta = f'Execution mode: <b>{MODES.get(auto.get("mode","auto_paper"),auto.get("mode"))}</b>'
+    if auto.get("emergency_stop"):
+        meta += ' • 🛑 NOODSTOP ACTIEF'
+    meta += f' &nbsp;•&nbsp; Laatste automatische run: {state.get("last_run") or "nog niet uitgevoerd"}'
+    st.markdown(f'<div class="meta-line">{meta}</div>', unsafe_allow_html=True)
 
     enabled_assets=state.setdefault("enabled_assets", {})
     for asset in CFG["portfolio"]["assets"]:
         enabled_assets.setdefault(asset, True)
-
-    st.markdown('<div class="section-title" style="margin-top:16px">Actieve posities</div><div class="section-sub">Realtime mark-to-market overzicht van je open trades.</div>', unsafe_allow_html=True)
 
     rows=[]
     for asset in CFG["portfolio"]["assets"]:
@@ -312,30 +193,30 @@ with tabs[0]:
             open_pct=((last_price-pos["entry"])/pos["entry"])*100
             stop_distance=((last_price-pos.get("trail_stop",0))/last_price)*100 if last_price else 0
             rows.append({
-                "Markt":asset,"Nieuwe trades":"AAN" if trade_enabled else "UIT","Status":"LONG","Entry":round(pos["entry"],2),
-                "Laatste koers":round(last_price,2),
+                "Markt":asset,"Nieuwe trades":"AAN" if trade_enabled else "UIT","Status":"LONG",
+                "Entry":round(pos["entry"],2),"Laatste koers":round(last_price,2),
                 "Trailing stop":round(pos.get("trail_stop",0),2),
                 "Afstand tot stop %":round(stop_distance,2),
-                "Open P/L €":round(open_pnl_eur,2),
-                "Open P/L %":round(open_pct,2)
+                "Open P/L €":round(open_pnl_eur,2),"Open P/L %":round(open_pct,2)
             })
         else:
-            rows.append({"Markt":asset,"Nieuwe trades":"AAN" if trade_enabled else "UIT","Status":"CASH","Entry":None,"Laatste koers":None,
-                         "Trailing stop":None,"Afstand tot stop %":None,"Open P/L €":0,"Open P/L %":0})
+            rows.append({
+                "Markt":asset,"Nieuwe trades":"AAN" if trade_enabled else "UIT","Status":"CASH",
+                "Entry":None,"Laatste koers":None,"Trailing stop":None,
+                "Afstand tot stop %":None,"Open P/L €":0,"Open P/L %":0
+            })
+
+    st.markdown('<div class="section-head"><div class="section-title">Actieve posities</div><div class="section-sub">Realtime mark-to-market overzicht, trailing stops en resultaat per markt.</div></div>', unsafe_allow_html=True)
     st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
 
     if hist:
+        st.markdown('<div class="section-head"><div class="section-title">Portfolio prestatie</div><div class="section-sub">Ontwikkeling van je paper equity doorheen de tijd.</div></div>', unsafe_allow_html=True)
         h=pd.DataFrame(hist)
         h["time"]=pd.to_datetime(h["time"])
         h=h.set_index("time")
-        st.markdown('<div class="section-card"><div class="section-title">Portfolio prestatie</div><div class="section-sub">Ontwikkeling van je paper equity doorheen de tijd.</div></div>', unsafe_allow_html=True)
-        st.line_chart(h["equity"])
-
-
-
+        st.line_chart(h["equity"],height=320)
 
 with tabs[1]:
-    st.markdown('<div class="section-title">Automatisering & Risk Guard</div><div class="section-sub">Beheer hoe zelfstandig de app mag handelen en welke veiligheidsgrenzen gelden.</div>', unsafe_allow_html=True)
     state,_=load_state()
     auto=normalize_automation(state)
     status=broker_status(state)
@@ -453,7 +334,6 @@ with tabs[1]:
     )
 
 with tabs[2]:
-    st.markdown('<div class="section-title">Instrumenten</div><div class="section-sub">Bepaal welke markten nieuwe trades mogen openen.</div>', unsafe_allow_html=True)
     state,_=load_state()
     enabled_assets=state.setdefault("enabled_assets", {})
     all_assets=list(CFG["portfolio"]["assets"].keys())
@@ -498,7 +378,6 @@ with tabs[2]:
 
 
 with tabs[3]:
-    st.markdown('<div class="section-title">Forward test</div><div class="section-sub">Volg de echte paper-resultaten zonder de strategie voortdurend aan te passen.</div>', unsafe_allow_html=True)
     state,_=load_state()
     st.subheader("Forward-test monitor")
     st.caption("Deze monitor beoordeelt alleen de paper-resultaten die vanaf nu werkelijk binnenkomen. De strategie wordt hier niet automatisch aangepast.")
@@ -619,7 +498,7 @@ with tabs[8]:
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.3 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.2.3 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
