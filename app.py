@@ -1,11 +1,12 @@
 import pandas as pd
+import altair as alt
 import streamlit as st
 from trading_core import CFG, fetch, market_snapshot, desired_action
 from storage import load_state, save_state
 from paper_runner import run_once
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.2", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -230,6 +231,129 @@ def position_rows(pid):
             })
     return rows
 
+
+def render_position_charts(pid):
+    p = state["portfolios"][pid]
+    positions = p.get("positions", {})
+    if not positions:
+        st.info("Nog geen open posities in deze portefeuille.")
+        return
+
+    tf = "1h" if pid == "swing" else "15m"
+    tf_label = "1 uur" if pid == "swing" else "15 minuten"
+
+    st.markdown(
+        '<div class="section-head"><div class="section-title">Positiegrafieken</div>'
+        f'<div class="section-sub">Koersverloop op {tf_label} met entry en actuele trailing stop.</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    for asset, pos in positions.items():
+        try:
+            ticker = CFG["portfolio"]["assets"][asset]["ticker"]
+            df = fetch(ticker, tf).tail(140).copy()
+            if df.empty:
+                continue
+
+            chart_df = df.reset_index()
+            time_col = chart_df.columns[0]
+            chart_df = chart_df.rename(columns={time_col: "time"})
+            chart_df["time"] = pd.to_datetime(chart_df["time"])
+            chart_df["entry"] = float(pos["entry"])
+            chart_df["trailing_stop"] = float(pos.get("trail_stop", pos["entry"]))
+
+            current_price = float(chart_df["close"].iloc[-1])
+            entry_price = float(pos["entry"])
+            stop_price = float(pos.get("trail_stop", entry_price))
+            qty = float(pos.get("qty", 0))
+            open_pnl = (current_price - entry_price) * qty
+            open_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price else 0.0
+            distance_stop = ((current_price - stop_price) / current_price) * 100 if current_price else 0.0
+
+            st.markdown(f"### {asset}")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Huidige koers", f"{current_price:,.2f}")
+            c2.metric("Entry", f"{entry_price:,.2f}")
+            c3.metric("Trailing stop", f"{stop_price:,.2f}")
+            c4.metric("Open P/L", f"€{open_pnl:,.2f}", f"{open_pct:+.2f}%")
+
+            base = alt.Chart(chart_df).encode(
+                x=alt.X("time:T", title=None)
+            )
+
+            price_line = base.mark_line(strokeWidth=2.5, color="#2F80ED").encode(
+                y=alt.Y("close:Q", title="Koers", scale=alt.Scale(zero=False)),
+                tooltip=[
+                    alt.Tooltip("time:T", title="Tijd"),
+                    alt.Tooltip("close:Q", title="Koers", format=".2f"),
+                ],
+            )
+
+            entry_rule = alt.Chart(pd.DataFrame({"y": [entry_price]})).mark_rule(
+                color="#18A76F",
+                strokeDash=[8, 5],
+                strokeWidth=2,
+            ).encode(y="y:Q")
+
+            stop_rule = alt.Chart(pd.DataFrame({"y": [stop_price]})).mark_rule(
+                color="#EF5963",
+                strokeDash=[6, 5],
+                strokeWidth=2,
+            ).encode(y="y:Q")
+
+            last_row = pd.DataFrame({
+                "time": [chart_df["time"].iloc[-1]],
+                "close": [current_price],
+            })
+            current_point = alt.Chart(last_row).mark_point(
+                filled=True,
+                size=95,
+                color="#2F80ED",
+            ).encode(x="time:T", y="close:Q")
+
+            labels = pd.DataFrame({
+                "label": [
+                    f"ENTRY {entry_price:,.2f}",
+                    f"TRAILING STOP {stop_price:,.2f}",
+                ],
+                "y": [entry_price, stop_price],
+                "time": [chart_df["time"].iloc[-1], chart_df["time"].iloc[-1]],
+            })
+            label_chart = alt.Chart(labels).mark_text(
+                align="right",
+                dx=-8,
+                dy=-7,
+                fontSize=11,
+                fontWeight="bold",
+            ).encode(
+                x="time:T",
+                y="y:Q",
+                text="label:N",
+                color=alt.Color(
+                    "label:N",
+                    scale=alt.Scale(
+                        domain=[f"ENTRY {entry_price:,.2f}", f"TRAILING STOP {stop_price:,.2f}"],
+                        range=["#18A76F", "#EF5963"],
+                    ),
+                    legend=None,
+                ),
+            )
+
+            chart = (
+                price_line + entry_rule + stop_rule + current_point + label_chart
+            ).properties(height=320).interactive()
+
+            st.altair_chart(chart, use_container_width=True)
+
+            st.caption(
+                f"Afstand huidige koers tot trailing stop: {distance_stop:.2f}% • "
+                f"Timeframe: {tf_label} • Positie: LONG"
+            )
+            st.divider()
+
+        except Exception as e:
+            st.warning(f"Grafiek voor {asset} kon niet geladen worden: {type(e).__name__}")
+
 tabs = st.tabs([
     "Dashboard",
     "Swing Portfolio",
@@ -298,6 +422,7 @@ with tabs[1]:
         ("🛡️", "Max drawdown", f"{dd:.2f}%", "Risico", ""),
     ])
     st.dataframe(pd.DataFrame(position_rows("swing")), use_container_width=True, hide_index=True)
+    render_position_charts("swing")
 
 with tabs[2]:
     p = state["portfolios"]["active"]
@@ -321,6 +446,7 @@ with tabs[2]:
         ("🛡️", "Max drawdown", f"{dd:.2f}%", "Risico", ""),
     ])
     st.dataframe(pd.DataFrame(position_rows("active")), use_container_width=True, hide_index=True)
+    render_position_charts("active")
 
 with tabs[3]:
     st.markdown(
@@ -462,6 +588,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.2 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

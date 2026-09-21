@@ -4,3 +4,5 @@ numpy>=1.26
 yfinance>=0.2.54
 PyYAML>=6.0
 supabase>=2.10
+
+altair>=5.0
