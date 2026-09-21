@@ -12,44 +12,98 @@ from analytics import (
     forward_test_table, weekly_summary, marked_portfolio_values
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.3.2",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.4",page_icon="📈",layout="wide")
 st.markdown("""<style>
-:root{--nav:#0f2845;--nav2:#173c67;--blue:#2f80ed;--green:#19a76f;--red:#ee5661;--ink:#102a49;--line:#e3ebf3;}
-.stApp{background:linear-gradient(180deg,#eef5fb 0,#f8fbff 220px,#fff 620px);color:var(--ink);}
-.block-container{max-width:1420px;padding-top:.9rem;padding-bottom:4rem}
-[data-testid="stHeader"]{background:linear-gradient(90deg,var(--nav),var(--nav2))}
-div[data-testid="stTabs"] button{font-weight:700;color:#445f79;padding:.6rem .9rem}
-div[data-testid="stTabs"] button[aria-selected="true"]{color:var(--blue);background:#edf5ff;border-radius:10px 10px 0 0;border-bottom:3px solid var(--blue)}
-.stButton>button{border-radius:12px;min-height:46px;font-weight:750;border:1px solid #dce7f2}
-.stButton>button[kind="primary"]{background:linear-gradient(135deg,#3388ee,#1d6ed3);color:white;border:0}
-[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 5px 22px rgba(24,59,95,.06)}
-.hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;background:linear-gradient(135deg,#fff,#eef6ff);border:1px solid #dde9f5;border-radius:22px;padding:22px 24px;box-shadow:0 10px 30px rgba(24,59,95,.08);margin-bottom:14px}
-.hero-title{font-size:2.35rem;font-weight:850;line-height:1.05;color:#102a49}
-.hero-sub{font-size:1rem;color:#667d94;margin-top:7px}
-.status-wrap{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
-.status{border-radius:11px;padding:9px 11px;font-size:.82rem;font-weight:750;background:#fff;border:1px solid #dfe8f1;color:#35506d}
-.status.good{background:#effaf5;color:#147d52;border-color:#d6efe2}
-.status.info{background:#eef6ff;color:#2561a8;border-color:#d8e9ff}
-.hero-side{text-align:right;font-size:.84rem;color:#72879c;line-height:1.55}
-.section-head{margin:18px 0 10px}
-.section-title{font-size:1.15rem;font-weight:800;color:#173654}
-.section-sub{font-size:.88rem;color:#7a8a9a;margin-top:2px}
-.kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:13px;margin:12px 0 14px}
-.kpi{background:white;border:1px solid var(--line);border-radius:18px;padding:15px;min-height:125px;box-shadow:0 7px 25px rgba(24,59,95,.07)}
-.kpi.green{border-top:4px solid var(--green)} .kpi.red{border-top:4px solid var(--red)} .kpi.blue{border-top:4px solid var(--blue)}
-.kpi-head{display:flex;align-items:center;gap:8px;color:#587087;font-size:.78rem;font-weight:750}
-.kpi-icon{width:32px;height:32px;border-radius:10px;background:#edf5ff;display:flex;align-items:center;justify-content:center;font-size:17px}
-.kpi-value{font-size:1.62rem;font-weight:850;color:var(--ink);margin-top:12px;line-height:1.05}
-.kpi-note{font-size:.77rem;margin-top:8px;color:#7c8d9f}
-.kpi.green .kpi-note{color:#168b5d}.kpi.red .kpi-note{color:#da4651}
-.mini-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:0 0 17px}
-.mini{display:flex;gap:11px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 5px 18px rgba(24,59,95,.05)}
-.mini-icon{width:39px;height:39px;border-radius:11px;background:#f0f6fc;display:flex;align-items:center;justify-content:center;font-size:19px}
-.mini-label{font-size:.75rem;color:#718497;font-weight:700}
-.mini-value{font-size:1.28rem;font-weight:850;color:#102a49;margin-top:2px}
-.meta-line{font-size:.78rem;color:#8392a2;margin:7px 0}
-@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:700px){.hero{flex-direction:column}.hero-side{text-align:left}.hero-title{font-size:1.9rem}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi-value{font-size:1.35rem}}
+:root{
+  --nav:#0d2a4a;--nav2:#173f6c;--accent:#2f80ed;--accent2:#5aa2ff;
+  --ink:#102a49;--muted:#73869a;--line:#e3ecf4;--green:#18a76f;--red:#ef5a63;
+}
+.stApp{
+  background:
+    radial-gradient(circle at 80% 0%, rgba(75,145,225,.14), transparent 28%),
+    linear-gradient(180deg,#eef6fd 0,#f8fbfe 240px,#ffffff 760px);
+  color:var(--ink);
+}
+.block-container{max-width:1540px;padding:0.7rem 1.2rem 4rem}
+[data-testid="stHeader"]{background:linear-gradient(90deg,var(--nav),var(--nav2));height:3.1rem}
+div[data-testid="stTabs"] button{font-weight:700;color:#47627e;padding:.65rem .95rem}
+div[data-testid="stTabs"] button[aria-selected="true"]{color:var(--accent);background:#edf5ff;border-radius:10px 10px 0 0;border-bottom:3px solid var(--accent)}
+.stButton>button{border-radius:12px;min-height:44px;font-weight:750;border:1px solid #dce8f3}
+.stButton>button[kind="primary"]{background:linear-gradient(135deg,#3288ef,#1d6fd6);color:#fff;border:0}
+[data-testid="stDataFrame"]{border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(24,59,95,.06)}
+
+.hero{
+  position:relative;overflow:hidden;border-radius:0 0 24px 24px;
+  padding:26px 28px 22px;margin:0 -1.2rem 16px;
+  background:
+    linear-gradient(90deg,rgba(246,251,255,.98),rgba(236,246,255,.92)),
+    radial-gradient(circle at 88% 35%, rgba(72,137,216,.18), transparent 34%);
+  border-bottom:1px solid #dce8f3;
+}
+.hero:after{
+  content:"";position:absolute;right:-80px;top:-90px;width:470px;height:300px;
+  background:linear-gradient(135deg,rgba(120,176,235,.15),rgba(255,255,255,0));
+  transform:rotate(-12deg);border-radius:50%;
+}
+.brand{display:flex;align-items:center;gap:15px;position:relative;z-index:2}
+.brand-icon{
+  width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,#2f80ed,#62a6f8);
+  color:#fff;display:flex;align-items:flex-end;justify-content:center;gap:3px;padding:10px;
+  box-shadow:0 8px 24px rgba(47,128,237,.24)
+}
+.brand-icon i{display:block;width:6px;background:white;border-radius:4px}
+.brand-icon i:nth-child(1){height:15px}.brand-icon i:nth-child(2){height:24px}.brand-icon i:nth-child(3){height:33px}
+.hero-title{font-size:2.5rem;font-weight:900;letter-spacing:-.04em;line-height:1;color:#102b4c}
+.hero-sub{font-size:1.15rem;color:#54708e;margin-top:5px}
+.hero-desc{font-size:.9rem;color:#71859a;margin-top:6px}
+.hero-status{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px;margin-top:18px;max-width:760px;position:relative;z-index:2}
+.status-card{
+  background:rgba(255,255,255,.9);border:1px solid #dfeaf4;border-radius:15px;padding:12px 14px;
+  box-shadow:0 7px 24px rgba(30,67,104,.07);display:flex;align-items:center;gap:11px
+}
+.status-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px}
+.status-green{background:#eaf9f2;color:#15935f}.status-blue{background:#eaf3ff;color:#2f80ed}
+.status-title{font-size:.78rem;font-weight:850;color:#23425f}.status-sub{font-size:.68rem;color:#8292a2;margin-top:2px}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px}
+.kpi{
+  background:#fff;border:1px solid #e3edf5;border-radius:17px;padding:15px 16px 13px;
+  min-height:118px;box-shadow:0 7px 24px rgba(30,66,102,.06)
+}
+.kpi-top{display:flex;align-items:center;gap:9px}.kpi-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;background:#edf5ff}
+.kpi-label{font-size:.78rem;font-weight:750;color:#59718a}.kpi-value{font-size:1.65rem;font-weight:900;color:#102a49;margin-top:13px}
+.kpi-foot{margin-top:7px;font-size:.72rem;color:#8190a0}.negative{color:#e44753!important}.positive{color:#168d60!important}
+.spark{height:3px;border-radius:4px;margin-top:9px;background:linear-gradient(90deg,#d6e7fb,#68a8f3)}
+.spark.red{background:linear-gradient(90deg,#ffd9dd,#ef5a63)}
+
+.mid-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:14px}
+.panel{background:#fff;border:1px solid #e3ecf4;border-radius:18px;padding:16px;box-shadow:0 7px 25px rgba(27,61,96,.06)}
+.panel-title{font-size:1.12rem;font-weight:850;color:#163653}
+.panel-sub{font-size:.78rem;color:#7a8c9d;margin-top:2px}
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.quick{border:1px solid #e3ecf4;border-radius:14px;padding:13px;display:flex;gap:11px;align-items:center;background:#fbfdff}
+.quick-ico{width:40px;height:40px;border-radius:12px;background:#edf5ff;display:flex;align-items:center;justify-content:center;font-size:20px}
+.quick-title{font-size:.82rem;font-weight:800;color:#21405f}.quick-sub{font-size:.69rem;color:#7d8e9e;margin-top:2px}
+.tip{margin-top:12px;padding:11px 12px;border-radius:13px;background:#eef6ff;color:#2a5d93;font-size:.74rem}
+
+.stats-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-top:10px;border-top:1px solid #edf2f6}
+.statx{padding:10px 12px;border-right:1px solid #edf2f6}.statx:last-child{border-right:0}
+.statx-l{font-size:.68rem;color:#7d8c9c}.statx-v{font-size:.9rem;font-weight:800;color:#193a5b;margin-top:3px}
+
+.section-head{display:flex;justify-content:space-between;align-items:end;margin:17px 0 8px}
+.section-title{font-size:1.13rem;font-weight:850;color:#173755}.section-sub{font-size:.78rem;color:#7b8d9e;margin-top:2px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:.68rem;font-weight:800}
+.badge-long{background:#eaf8f1;color:#16885b}.badge-cash{background:#edf2f7;color:#64788c}
+.footer-note{font-size:.72rem;color:#8997a6;text-align:center;margin-top:20px}
+
+@media(max-width:1100px){
+ .kpi-grid{grid-template-columns:repeat(3,1fr)} .mid-grid{grid-template-columns:1fr}
+ .hero-status{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+ .kpi-grid{grid-template-columns:repeat(2,1fr)} .hero-title{font-size:2rem}
+ .hero{padding:20px 18px}.quick-grid{grid-template-columns:1fr}.stats-strip{grid-template-columns:1fr 1fr}
+}
 </style>""",unsafe_allow_html=True)
 
 st.caption("Trading companion • signalen • bevestigen • Auto Paper • voorbereid op Auto Live")
@@ -89,19 +143,18 @@ def latest_live_prices(state):
 
 st.markdown("""
 <div class="hero">
-  <div>
-    <div class="hero-title">📊 AI Trend Trader</div>
-    <div class="hero-sub">Slimmer traden. Rustiger volgen. Multi-asset trend trading met automatische paper-uitvoering en risicobewaking.</div>
-    <div class="status-wrap">
-      <span class="status good">🛡️ PAPER ONLY</span>
-      <span class="status good">💾 Supabase actief</span>
-      <span class="status info">🔔 Telegram actief</span>
+  <div class="brand">
+    <div class="brand-icon"><i></i><i></i><i></i></div>
+    <div>
+      <div class="hero-title">AI Trend Trader</div>
+      <div class="hero-sub">Slimmer traden. Rustiger leven.</div>
+      <div class="hero-desc">AI-gedreven trendstrategieën op meerdere markten. Paper trading mode.</div>
     </div>
   </div>
-  <div class="hero-side">
-    <b>AI Trend Trader v1.3.2</b><br>
-    1D • 4H • 1H analyse<br>
-    Risk Guard actief
+  <div class="hero-status">
+    <div class="status-card"><div class="status-icon status-green">🛡️</div><div><div class="status-title">PAPER ONLY</div><div class="status-sub">Live handelen uitgeschakeld</div></div></div>
+    <div class="status-card"><div class="status-icon status-blue">💾</div><div><div class="status-title">Persistente opslag actief</div><div class="status-sub">via Supabase</div></div></div>
+    <div class="status-card"><div class="status-icon status-blue">✈️</div><div><div class="status-title">Telegram-meldingen actief</div><div class="status-sub">Real-time updates</div></div></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -110,8 +163,6 @@ tabs=st.tabs(["Dashboard","Automatisering","Instrumenten","Forward test","Perfor
 
 
 with tabs[0]:
-    st.markdown('<div class="section-head"><div class="section-title">Dashboard</div><div class="section-sub">Actuele portefeuille, prestaties en open posities in één overzicht.</div></div>', unsafe_allow_html=True)
-
     if st.button("▶️ Update paper portfolio nu",type="primary"):
         with st.spinner("Markten scannen en paper portfolio bijwerken..."):
             state,mode=run_once()
@@ -121,101 +172,79 @@ with tabs[0]:
     auto=normalize_automation(state)
     positions=state.get("positions",{})
     hist=state.get("equity_history",[])
-
     with st.spinner("Actuele portefeuillewaarden ophalen..."):
         live_prices=latest_live_prices(state)
     marks=marked_portfolio_values(state, live_prices)
-
     stats=trade_stats(state)
-    total_pl=marks["equity"]-float(state.get("starting_equity",5000.0))
     dd=max_drawdown_pct(state)
+    total_pl=marks["equity"]-float(state.get("starting_equity",5000.0))
 
-    def money(v):
-        return f"€{v:,.2f}"
-
-    def tone(v):
-        return "green" if v>0 else ("red" if v<0 else "blue")
+    def money(v): return f"€{v:,.2f}"
+    def klass(v): return "positive" if v>0 else ("negative" if v<0 else "")
 
     cards=[
-        ("Equity",money(marks["equity"]),f"{marks['total_return_pct']:+.2f}% sinds start",tone(marks["total_return_pct"]),"📈"),
-        ("Paper cash",money(marks["cash"]),"Beschikbaar saldo","blue","💶"),
-        ("Open P/L",money(marks["open_pnl"]),"Niet gerealiseerd",tone(marks["open_pnl"]),"📊"),
-        ("Gerealiseerde P/L",money(marks["realized_pnl"]),"Gesloten trades",tone(marks["realized_pnl"]),"🏆"),
-        ("Waarde open posities",money(marks["market_value"]),"Mark-to-market","blue","💼"),
-        ("Totale P/L sinds start",money(total_pl),f"{marks['total_return_pct']:+.2f}%",tone(total_pl),"🎯"),
+        ("💼","Equity",money(marks["equity"]),f"{marks['total_return_pct']:+.2f}%","red" if marks["total_return_pct"]<0 else ""),
+        ("💶","Paper cash",money(marks["cash"]),"Beschikbaar",""),
+        ("📈","Open P/L",money(marks["open_pnl"]),f"{marks['open_pnl']:+.2f}","red" if marks["open_pnl"]<0 else ""),
+        ("🏆","Gerealiseerd P/L",money(marks["realized_pnl"]),"Gesloten trades",""),
+        ("🥧","Waarde open posities",money(marks["market_value"]),"Mark-to-market",""),
+        ("📊","Totale P/L sinds start",money(total_pl),f"{marks['total_return_pct']:+.2f}%","red" if total_pl<0 else ""),
+        ("📋","Open posities",str(len(positions)),"Actief",""),
+        ("✅","Gesloten trades",str(stats["count"]),"Historiek",""),
+        ("🎯","Winrate",f"{stats['winrate']:.1f}%","Resultaat",""),
+        ("🛡️","Max drawdown",f"{dd:.2f}%","Risico","")
     ]
-
     html='<div class="kpi-grid">'
-    for title,value,note,t,icon in cards:
-        html += (
-            f'<div class="kpi {t}">'
-            f'<div class="kpi-head"><span class="kpi-icon">{icon}</span>{title}</div>'
-            f'<div class="kpi-value">{value}</div>'
-            f'<div class="kpi-note">{note}</div>'
-            f'</div>'
-        )
+    for icon,label,value,foot,sp in cards:
+        valclass=klass(total_pl if label=="Totale P/L sinds start" else (marks["open_pnl"] if label=="Open P/L" else (marks["total_return_pct"] if label=="Equity" else 0)))
+        html += f'<div class="kpi"><div class="kpi-top"><div class="kpi-ico">{icon}</div><div class="kpi-label">{label}</div></div><div class="kpi-value {valclass}">{value}</div><div class="kpi-foot {valclass}">{foot}</div><div class="spark {sp}"></div></div>'
     html+='</div>'
     st.markdown(html,unsafe_allow_html=True)
 
-    minis=[
-        ("Open posities",len(positions),"📚"),
-        ("Gesloten trades",stats["count"],"✅"),
-        ("Winrate",f"{stats['winrate']:.1f}%","🎯"),
-        ("Max drawdown",f"{dd:.2f}%","🛡️"),
-    ]
-    html='<div class="mini-grid">'
-    for label,value,icon in minis:
-        html += (
-            f'<div class="mini"><div class="mini-icon">{icon}</div>'
-            f'<div><div class="mini-label">{label}</div><div class="mini-value">{value}</div></div></div>'
-        )
-    html+='</div>'
-    st.markdown(html,unsafe_allow_html=True)
-
-    meta = f'Execution mode: <b>{MODES.get(auto.get("mode","auto_paper"),auto.get("mode"))}</b>'
-    if auto.get("emergency_stop"):
-        meta += ' • 🛑 NOODSTOP ACTIEF'
-    meta += f' &nbsp;•&nbsp; Laatste automatische run: {state.get("last_run") or "nog niet uitgevoerd"}'
-    st.markdown(f'<div class="meta-line">{meta}</div>', unsafe_allow_html=True)
-
-    enabled_assets=state.setdefault("enabled_assets", {})
-    for asset in CFG["portfolio"]["assets"]:
-        enabled_assets.setdefault(asset, True)
-
-    rows=[]
-    for asset in CFG["portfolio"]["assets"]:
-        pos=positions.get(asset)
-        trade_enabled=enabled_assets.get(asset,True)
-        if pos:
-            last_price=live_prices.get(asset,pos.get("last_price",pos["entry"]))
-            qty=float(pos.get("qty",0))
-            open_pnl_eur=(last_price-pos["entry"])*qty
-            open_pct=((last_price-pos["entry"])/pos["entry"])*100
-            stop_distance=((last_price-pos.get("trail_stop",0))/last_price)*100 if last_price else 0
-            rows.append({
-                "Markt":asset,"Nieuwe trades":"AAN" if trade_enabled else "UIT","Status":"LONG",
-                "Entry":round(pos["entry"],2),"Laatste koers":round(last_price,2),
-                "Trailing stop":round(pos.get("trail_stop",0),2),
-                "Afstand tot stop %":round(stop_distance,2),
-                "Open P/L €":round(open_pnl_eur,2),"Open P/L %":round(open_pct,2)
-            })
-        else:
-            rows.append({
-                "Markt":asset,"Nieuwe trades":"AAN" if trade_enabled else "UIT","Status":"CASH",
-                "Entry":None,"Laatste koers":None,"Trailing stop":None,
-                "Afstand tot stop %":None,"Open P/L €":0,"Open P/L %":0
-            })
-
-    st.markdown('<div class="section-head"><div class="section-title">Actieve posities</div><div class="section-sub">Realtime mark-to-market overzicht, trailing stops en resultaat per markt.</div></div>', unsafe_allow_html=True)
-    st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
-
+    st.markdown('<div class="mid-grid"><div class="panel"><div class="panel-title">Portfolio prestatie</div><div class="panel-sub">Ontwikkeling van je equity (paper trading)</div>',unsafe_allow_html=True)
     if hist:
-        st.markdown('<div class="section-head"><div class="section-title">Portfolio prestatie</div><div class="section-sub">Ontwikkeling van je paper equity doorheen de tijd.</div></div>', unsafe_allow_html=True)
         h=pd.DataFrame(hist)
         h["time"]=pd.to_datetime(h["time"])
         h=h.set_index("time")
         st.line_chart(h["equity"],height=320)
+    stat_html=f'''<div class="stats-strip">
+      <div class="statx"><div class="statx-l">Start waarde</div><div class="statx-v">€{float(state.get("starting_equity",5000.0)):,.2f}</div></div>
+      <div class="statx"><div class="statx-l">Huidige waarde</div><div class="statx-v">€{marks["equity"]:,.2f}</div></div>
+      <div class="statx"><div class="statx-l">Totaal rendement</div><div class="statx-v {"negative" if marks["total_return_pct"]<0 else "positive"}">{marks["total_return_pct"]:+.2f}%</div></div>
+      <div class="statx"><div class="statx-l">Open P/L</div><div class="statx-v">€{marks["open_pnl"]:,.2f}</div></div>
+      <div class="statx"><div class="statx-l">Cash</div><div class="statx-v">€{marks["cash"]:,.2f}</div></div>
+    </div></div>'''
+    st.markdown(stat_html,unsafe_allow_html=True)
 
+    st.markdown('''<div class="panel">
+      <div class="panel-title">Snelle acties</div><div class="panel-sub">Beheer je trading setup en automatiseer je strategieën.</div>
+      <div class="quick-grid">
+        <div class="quick"><div class="quick-ico">⚙️</div><div><div class="quick-title">Automatisering</div><div class="quick-sub">Configureer en start je strategieën</div></div></div>
+        <div class="quick"><div class="quick-ico">▶️</div><div><div class="quick-title">Live trading</div><div class="quick-sub">Voorbereid voor latere koppeling</div></div></div>
+        <div class="quick"><div class="quick-ico">📊</div><div><div class="quick-title">Performance</div><div class="quick-sub">Analyseer resultaten en statistieken</div></div></div>
+        <div class="quick"><div class="quick-ico">📄</div><div><div class="quick-title">Tradehistoriek</div><div class="quick-sub">Bekijk gesloten trades en posities</div></div></div>
+      </div>
+      <div class="tip">💡 <b>Tip</b><br>Je handelt momenteel in paper mode. De app volgt automatisch je strategie en risicobeperkingen.</div>
+    </div></div>''',unsafe_allow_html=True)
+
+    enabled_assets=state.setdefault("enabled_assets",{})
+    for asset in CFG["portfolio"]["assets"]: enabled_assets.setdefault(asset,True)
+    rows=[]
+    for asset in CFG["portfolio"]["assets"]:
+        pos=positions.get(asset)
+        if pos:
+            last_price=live_prices.get(asset,pos.get("last_price",pos["entry"]))
+            qty=float(pos.get("qty",0))
+            pnl=(last_price-pos["entry"])*qty
+            pct=((last_price-pos["entry"])/pos["entry"])*100
+            dist=((last_price-pos.get("trail_stop",0))/last_price)*100 if last_price else 0
+            rows.append({"Markt":asset,"Nieuwe trades":"AAN" if enabled_assets.get(asset,True) else "UIT","Status":"LONG","Entry":round(pos["entry"],2),"Laatste koers":round(last_price,2),"Trailing stop":round(pos.get("trail_stop",0),2),"Afstand tot stop %":round(dist,2),"Open P/L €":round(pnl,2),"Open P/L %":round(pct,2)})
+        else:
+            rows.append({"Markt":asset,"Nieuwe trades":"AAN" if enabled_assets.get(asset,True) else "UIT","Status":"CASH","Entry":None,"Laatste koers":None,"Trailing stop":None,"Afstand tot stop %":None,"Open P/L €":0,"Open P/L %":0})
+
+    st.markdown('<div class="section-head"><div><div class="section-title">Actieve posities</div><div class="section-sub">Overzicht van je huidige posities en real-time inzichten.</div></div></div>',unsafe_allow_html=True)
+    st.dataframe(pd.DataFrame(rows),use_container_width=True,hide_index=True)
+    st.markdown('<div class="footer-note">AI Trend Trader • Multi-asset trend trading • Aangedreven door AI</div>',unsafe_allow_html=True)
 with tabs[1]:
     state,_=load_state()
     auto=normalize_automation(state)
