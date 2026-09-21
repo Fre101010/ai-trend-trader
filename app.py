@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.1.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -124,6 +124,135 @@ div[data-testid="stTabs"] button[aria-selected="true"]{
   .status-grid{grid-template-columns:1fr}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
 }
+
+/* v2.4.1 mobile/readability fix: force native Streamlit widgets to stay dark
+   on our light custom background, independent of iOS/system theme. */
+.stApp,
+.stApp p,
+.stApp span,
+.stApp label,
+.stApp div {
+  text-rendering: optimizeLegibility;
+}
+
+[data-testid="stMetric"],
+[data-testid="stMetric"] * {
+  color:#102a49 !important;
+}
+
+[data-testid="stMetricLabel"],
+[data-testid="stMetricLabel"] *,
+[data-testid="stMetricValue"],
+[data-testid="stMetricValue"] *,
+[data-testid="stMetricDelta"],
+[data-testid="stMetricDelta"] * {
+  opacity:1 !important;
+}
+
+[data-testid="stMetricLabel"] {
+  color:#6f8194 !important;
+}
+
+[data-testid="stMetricValue"] {
+  color:#102a49 !important;
+}
+
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] *,
+.stCaption,
+.stCaption * {
+  color:#6f8194 !important;
+  opacity:1 !important;
+}
+
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li {
+  color:#173755;
+}
+
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4 {
+  color:#102a49 !important;
+}
+
+/* Main and nested tabs: readable and horizontally scrollable on mobile. */
+div[data-testid="stTabs"] > div:first-child {
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+
+div[data-testid="stTabs"] > div:first-child::-webkit-scrollbar {
+  display:none;
+}
+
+div[data-testid="stTabs"] [role="tablist"] {
+  flex-wrap:nowrap !important;
+  min-width:max-content;
+  gap:.15rem;
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+  color:#415b75 !important;
+  background:transparent !important;
+  white-space:nowrap !important;
+  opacity:1 !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"] p,
+div[data-testid="stTabs"] button[role="tab"] span {
+  color:inherit !important;
+  opacity:1 !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+  color:#ef5963 !important;
+  background:#fff7f8 !important;
+  border-bottom:3px solid #ef5963 !important;
+}
+
+/* Native controls inside position management. */
+[data-testid="stButton"] button,
+[data-testid="stButton"] button * {
+  opacity:1 !important;
+}
+
+[data-testid="stAlert"] *,
+[data-testid="stNotification"] * {
+  opacity:1 !important;
+}
+
+/* iPhone/mobile: reduce oversized gaps and keep chart/metrics compact. */
+@media(max-width:650px){
+  .block-container{
+    padding-left:.75rem !important;
+    padding-right:.75rem !important;
+  }
+
+  [data-testid="stMetric"]{
+    background:#fff !important;
+    border:1px solid #e3edf5 !important;
+    border-radius:14px !important;
+    padding:.75rem !important;
+  }
+
+  [data-testid="stMetricValue"]{
+    font-size:1.45rem !important;
+  }
+
+  [data-testid="stMetricLabel"]{
+    font-size:.78rem !important;
+  }
+
+  div[data-testid="stTabs"] button[role="tab"]{
+    padding:.5rem .72rem !important;
+    font-size:.88rem !important;
+  }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -701,6 +830,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
