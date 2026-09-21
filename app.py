@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.2.1.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.3.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -203,13 +203,21 @@ def position_rows(pid):
         if pos:
             px = prices.get(asset, pos.get("last_price", pos["entry"]))
             qty = float(pos.get("qty", 0))
-            pnl = (px - pos["entry"]) * qty
-            pct = ((px - pos["entry"]) / pos["entry"]) * 100 if pos["entry"] else 0
-            dist = ((px - pos.get("trail_stop", 0)) / px) * 100 if px else 0
+            side = pos.get("side", "LONG")
+
+            if side == "SHORT":
+                pnl = (pos["entry"] - px) * qty
+                pct = ((pos["entry"] - px) / pos["entry"]) * 100 if pos["entry"] else 0
+                dist = ((pos.get("trail_stop", 0) - px) / px) * 100 if px else 0
+            else:
+                pnl = (px - pos["entry"]) * qty
+                pct = ((px - pos["entry"]) / pos["entry"]) * 100 if pos["entry"] else 0
+                dist = ((px - pos.get("trail_stop", 0)) / px) * 100 if px else 0
+
             rows.append({
                 "Markt": asset,
                 "Nieuwe trades": "AAN" if enabled else "UIT",
-                "Status": "LONG",
+                "Status": side,
                 "Entry": round(pos["entry"], 2),
                 "Laatste koers": round(px, 2),
                 "Trailing stop": round(pos.get("trail_stop", 0), 2),
@@ -275,15 +283,21 @@ def render_position_charts(pid):
                 stop_price = float(pos.get("trail_stop", entry_price))
                 qty = float(pos.get("qty", 0))
 
-                open_pnl = (current_price - entry_price) * qty
-                open_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price else 0.0
-                distance_stop = ((current_price - stop_price) / current_price) * 100 if current_price else 0.0
+                side = pos.get("side", "LONG")
+                if side == "SHORT":
+                    open_pnl = (entry_price - current_price) * qty
+                    open_pct = ((entry_price - current_price) / entry_price) * 100 if entry_price else 0.0
+                    distance_stop = ((stop_price - current_price) / current_price) * 100 if current_price else 0.0
+                else:
+                    open_pnl = (current_price - entry_price) * qty
+                    open_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price else 0.0
+                    distance_stop = ((current_price - stop_price) / current_price) * 100 if current_price else 0.0
 
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Huidige koers", f"{current_price:,.2f}")
                 c2.metric("Entry", f"{entry_price:,.2f}")
                 c3.metric("Trailing stop", f"{stop_price:,.2f}")
-                c4.metric("Open P/L", f"€{open_pnl:,.2f}", f"{open_pct:+.2f}%")
+                c4.metric(f"Open P/L ({side})", f"€{open_pnl:,.2f}", f"{open_pct:+.2f}%")
 
                 base = alt.Chart(chart_df).encode(
                     x=alt.X("time:T", title=None)
@@ -377,7 +391,7 @@ def render_position_charts(pid):
 
                 st.caption(
                     f"Afstand huidige koers tot trailing stop: {distance_stop:.2f}% • "
-                    f"Timeframe: {tf_label} • Positie: LONG"
+                    f"Timeframe: {tf_label} • Positie: {side}"
                 )
 
             except Exception as e:
@@ -463,7 +477,7 @@ with tabs[2]:
 
     st.markdown(
         '<div class="section-head"><div class="section-title">Active Portfolio</div>'
-        '<div class="section-sub">4H / 1H / 15m — meer signalen en kortere trades.</div></div>',
+        '<div class="section-sub">4H / 1H / 15m — meer signalen, kortere trades en LONG + SHORT.</div></div>',
         unsafe_allow_html=True,
     )
     render_kpis([
@@ -619,6 +633,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.2.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.3 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

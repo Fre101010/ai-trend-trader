@@ -92,6 +92,7 @@ def market_snapshot(asset, mode="swing"):
         }
     return out
 
+
 def desired_action(asset,s,mode="swing"):
     meta=CFG['portfolio']['assets'][asset]
     p=CFG['profiles'][meta['profile']]
@@ -99,16 +100,63 @@ def desired_action(asset,s,mode="swing"):
 
     if mode=='active':
         h4=s['4h']; h1=s['1h']; m15=s['15m']
-        regime=(h4['trend']=='BULLISH' and h4['price']>h4['ema50'] and h4['adx']>=max(16,p.get('min_adx',18)-2))
-        confirm=(h1['trend']=='BULLISH' and h1['price']>h1['ema20'] and h1['L']>=h1['S'])
-        timing=(m15['L']>=m15['S'] and 45<=m15['rsi']<=72 and m15['price']>m15['ema20'])
-        return 'LONG' if regime and confirm and timing else 'CASH'
+
+        long_regime=(
+            h4['trend']=='BULLISH'
+            and h4['price']>h4['ema50']
+            and h4['adx']>=max(16,p.get('min_adx',18)-2)
+        )
+        long_confirm=(
+            h1['trend']=='BULLISH'
+            and h1['price']>h1['ema20']
+            and h1['L']>=h1['S']
+        )
+        long_timing=(
+            m15['L']>=m15['S']
+            and 45<=m15['rsi']<=72
+            and m15['price']>m15['ema20']
+        )
+
+        short_regime=(
+            h4['trend']=='BEARISH'
+            and h4['price']<h4['ema50']
+            and h4['adx']>=max(16,p.get('min_adx',18)-2)
+        )
+        short_confirm=(
+            h1['trend']=='BEARISH'
+            and h1['price']<h1['ema20']
+            and h1['S']>=h1['L']
+        )
+        short_timing=(
+            m15['S']>=m15['L']
+            and 28<=m15['rsi']<=55
+            and m15['price']<m15['ema20']
+        )
+
+        if long_regime and long_confirm and long_timing:
+            return 'LONG'
+        if short_regime and short_confirm and short_timing:
+            return 'SHORT'
+        return 'CASH'
 
     if profile=='crypto':
         d=s['1d']; h4=s['4h']; h1=s['1h']
-        bull=(d['trend']=='BULLISH' and d['price']>d['ema200'] and d['ema50']>d['ema200'] and d['adx']>=p.get('min_adx',18))
-        conf=(h4['trend']=='BULLISH' and h4['adx']>=p.get('min_adx_4h',16) and h4['price']>h4['ema50'])
-        timing=(h1['L']>=h1['S'] and p.get('rsi_min_1h',44)<=h1['rsi']<=p.get('rsi_max_1h',72) and h1['price']>h1['ema20'])
+        bull=(
+            d['trend']=='BULLISH'
+            and d['price']>d['ema200']
+            and d['ema50']>d['ema200']
+            and d['adx']>=p.get('min_adx',18)
+        )
+        conf=(
+            h4['trend']=='BULLISH'
+            and h4['adx']>=p.get('min_adx_4h',16)
+            and h4['price']>h4['ema50']
+        )
+        timing=(
+            h1['L']>=h1['S']
+            and p.get('rsi_min_1h',44)<=h1['rsi']<=p.get('rsi_max_1h',72)
+            and h1['price']>h1['ema20']
+        )
         return 'LONG' if bull and conf and timing else 'CASH'
 
     if s['1d']['trend']=='BULLISH' and s['4h']['trend']=='BULLISH':

@@ -12,19 +12,47 @@ def current_equity(p):
 def open_pnl(p):
     total=0.0
     for pos in p.get("positions",{}).values():
-        entry=float(pos.get("entry",0)); last=float(pos.get("last_price",entry)); qty=float(pos.get("qty",0))
-        total += (last-entry)*qty
+        entry=float(pos.get("entry",0))
+        last=float(pos.get("last_price",entry))
+        qty=float(pos.get("qty",0))
+        side=pos.get("side","LONG")
+        if side=="SHORT":
+            total += (entry-last)*qty
+        else:
+            total += (last-entry)*qty
     return total
 
 def marked_values(p, live_prices=None):
     live_prices=live_prices or {}
-    cash=float(p.get("cash",0)); market=0.0; opnl=0.0
+    cash=float(p.get("cash",0))
+    market=0.0
+    opnl=0.0
+    margin_value=0.0
+
     for asset,pos in p.get("positions",{}).items():
-        entry=float(pos.get("entry",0)); qty=float(pos.get("qty",0))
+        entry=float(pos.get("entry",0))
+        qty=float(pos.get("qty",0))
         px=float(live_prices.get(asset,pos.get("last_price",entry)))
-        market += qty*px; opnl += (px-entry)*qty
-    eq=cash+market
-    return {"cash":cash,"market_value":market,"equity":eq,"open_pnl":opnl,"realized_pnl":realized_pnl(p)}
+        side=pos.get("side","LONG")
+
+        if side=="SHORT":
+            pnl=(entry-px)*qty
+            opnl += pnl
+            margin_value += entry*qty
+        else:
+            pnl=(px-entry)*qty
+            opnl += pnl
+            market += qty*px
+
+    # Longs are held as market value; shorts are represented as reserved margin + P/L.
+    eq=cash+market+margin_value+opnl
+    return {
+        "cash":cash,
+        "market_value":market+margin_value,
+        "equity":eq,
+        "open_pnl":opnl,
+        "realized_pnl":realized_pnl(p)
+    }
 
 def trade_stats(p):
     pnls=[float(t.get("pnl",0)) for t in p.get("trades",[])]
