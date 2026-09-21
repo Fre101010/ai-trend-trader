@@ -12,16 +12,215 @@ from analytics import (
     forward_test_table, weekly_summary, marked_portfolio_values
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.2.3",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.3",page_icon="📈",layout="wide")
 st.markdown("""<style>
-.block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
-.stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
-div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
+:root{
+  --nav:#0e2744;
+  --nav2:#163a63;
+  --accent:#2f80ed;
+  --text:#0f2747;
+  --muted:#6f7f92;
+  --card:#ffffff;
+  --soft:#f5f8fc;
+  --line:#e7edf4;
+  --green:#16a36a;
+  --red:#e24a4a;
+}
+
+html, body, [class*="css"]{
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.stApp{
+  background:
+    linear-gradient(180deg,#eef5fb 0px,#f8fbfe 210px,#ffffff 520px);
+  color:var(--text);
+}
+
+.block-container{
+  padding-top:1rem;
+  padding-bottom:4rem;
+  max-width:1380px;
+}
+
+h1,h2,h3{
+  color:var(--text);
+  letter-spacing:-0.02em;
+}
+
+h1{
+  font-size:2.4rem !important;
+  font-weight:800 !important;
+  margin-bottom:.25rem !important;
+}
+
+[data-testid="stHeader"]{
+  background:linear-gradient(90deg,var(--nav),var(--nav2));
+  height:3.2rem;
+}
+
+[data-testid="stToolbar"]{
+  right:.75rem;
+}
+
+div[data-testid="stTabs"] button{
+  min-height:44px;
+  border-radius:10px 10px 0 0;
+  padding:.55rem .85rem;
+  font-weight:650;
+  color:#334b66;
+}
+
+div[data-testid="stTabs"] button[aria-selected="true"]{
+  color:var(--accent);
+  border-bottom:3px solid var(--accent);
+  background:#edf5ff;
+}
+
+div[data-testid="stMetric"]{
+  background:rgba(255,255,255,.94);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:14px 16px;
+  box-shadow:0 6px 24px rgba(25,59,92,.06);
+  min-height:118px;
+}
+
+div[data-testid="stMetric"] label{
+  color:#52677e !important;
+  font-weight:650 !important;
+}
+
+div[data-testid="stMetricValue"]{
+  color:var(--text);
+  font-weight:750;
+}
+
+[data-testid="stDataFrame"]{
+  border:1px solid var(--line);
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 4px 18px rgba(25,59,92,.05);
+}
+
+.stButton>button{
+  width:100%;
+  min-height:46px;
+  border-radius:12px;
+  font-weight:700;
+  border:1px solid #dce7f2;
+  transition:.18s ease;
+}
+
+.stButton>button[kind="primary"]{
+  background:linear-gradient(135deg,#2f80ed,#1f6bd0);
+  color:#fff;
+  border:none;
+}
+
+.stButton>button:hover{
+  transform:translateY(-1px);
+}
+
+div[data-testid="stAlert"]{
+  border-radius:14px;
+  border:1px solid rgba(110,140,170,.18);
+}
+
+section[data-testid="stSidebar"]{
+  background:#f7fafd;
+}
+
+.premium-hero{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:20px;
+  padding:20px 22px;
+  background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,247,255,.96));
+  border:1px solid #dfe9f3;
+  border-radius:22px;
+  box-shadow:0 10px 30px rgba(25,59,92,.07);
+  margin-bottom:14px;
+}
+.hero-title{
+  font-size:2.45rem;
+  font-weight:850;
+  color:#102a4a;
+  line-height:1.05;
+}
+.hero-sub{
+  margin-top:7px;
+  color:#627790;
+  font-size:1rem;
+}
+.status-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:14px;
+}
+.status-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  background:#fff;
+  border:1px solid #dfe8f1;
+  border-radius:12px;
+  padding:10px 12px;
+  color:#28425e;
+  font-size:.88rem;
+  font-weight:650;
+}
+.status-pill.good{
+  background:#effaf5;
+  border-color:#d7f1e4;
+  color:#147a50;
+}
+.status-pill.info{
+  background:#eff6ff;
+  border-color:#dceaff;
+  color:#215eaa;
+}
+.section-card{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 6px 22px rgba(25,59,92,.05);
+  margin:10px 0 16px 0;
+}
+.section-title{
+  font-size:1.15rem;
+  font-weight:760;
+  color:#173453;
+  margin-bottom:2px;
+}
+.section-sub{
+  color:#7a8999;
+  font-size:.9rem;
+  margin-bottom:10px;
+}
+.mini-badge{
+  display:inline-block;
+  border-radius:999px;
+  padding:4px 9px;
+  font-size:.75rem;
+  font-weight:750;
+  background:#edf3f8;
+  color:#4e6174;
+}
+@media (max-width: 900px){
+  .block-container{padding-left:.8rem;padding-right:.8rem;}
+  .premium-hero{flex-direction:column;}
+  .hero-title{font-size:2rem;}
+  div[data-testid="stMetric"]{min-height:105px;}
+}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v1.2.3")
-st.caption("Trading companion • signalen • bevestigen • Auto Paper • voorbereid op Auto Live")
-st.caption("Laatste koers en open P/L gebruiken de recentste beschikbare 1H-prijs; trendlogica blijft 1D/4H/1H.")
+
+
+
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
 state,mode=load_state()
@@ -57,6 +256,7 @@ def latest_live_prices(state):
 tabs=st.tabs(["Dashboard","Automatisering","Instrumenten","Forward test","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
 
 with tabs[0]:
+    st.markdown('<div class="section-title">Dashboard</div><div class="section-sub">Overzicht van je portefeuille, actuele waardering en open posities.</div>', unsafe_allow_html=True)
     if st.button("▶️ Update paper portfolio nu",type="primary"):
         with st.spinner("Markten scannen en paper portfolio bijwerken..."):
             state,mode=run_once()
@@ -99,6 +299,8 @@ with tabs[0]:
     for asset in CFG["portfolio"]["assets"]:
         enabled_assets.setdefault(asset, True)
 
+    st.markdown('<div class="section-title" style="margin-top:16px">Actieve posities</div><div class="section-sub">Realtime mark-to-market overzicht van je open trades.</div>', unsafe_allow_html=True)
+
     rows=[]
     for asset in CFG["portfolio"]["assets"]:
         pos=positions.get(asset)
@@ -126,13 +328,14 @@ with tabs[0]:
         h=pd.DataFrame(hist)
         h["time"]=pd.to_datetime(h["time"])
         h=h.set_index("time")
-        st.markdown("#### Paper equity curve")
+        st.markdown('<div class="section-card"><div class="section-title">Portfolio prestatie</div><div class="section-sub">Ontwikkeling van je paper equity doorheen de tijd.</div></div>', unsafe_allow_html=True)
         st.line_chart(h["equity"])
 
 
 
 
 with tabs[1]:
+    st.markdown('<div class="section-title">Automatisering & Risk Guard</div><div class="section-sub">Beheer hoe zelfstandig de app mag handelen en welke veiligheidsgrenzen gelden.</div>', unsafe_allow_html=True)
     state,_=load_state()
     auto=normalize_automation(state)
     status=broker_status(state)
@@ -250,6 +453,7 @@ with tabs[1]:
     )
 
 with tabs[2]:
+    st.markdown('<div class="section-title">Instrumenten</div><div class="section-sub">Bepaal welke markten nieuwe trades mogen openen.</div>', unsafe_allow_html=True)
     state,_=load_state()
     enabled_assets=state.setdefault("enabled_assets", {})
     all_assets=list(CFG["portfolio"]["assets"].keys())
@@ -294,6 +498,7 @@ with tabs[2]:
 
 
 with tabs[3]:
+    st.markdown('<div class="section-title">Forward test</div><div class="section-sub">Volg de echte paper-resultaten zonder de strategie voortdurend aan te passen.</div>', unsafe_allow_html=True)
     state,_=load_state()
     st.subheader("Forward-test monitor")
     st.caption("Deze monitor beoordeelt alleen de paper-resultaten die vanaf nu werkelijk binnenkomen. De strategie wordt hier niet automatisch aangepast.")
@@ -414,7 +619,7 @@ with tabs[8]:
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.2.3 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.3 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
