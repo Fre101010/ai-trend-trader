@@ -26,6 +26,61 @@ def position_pnl(pos, price):
         return (entry-price)*qty
     return (price-entry)*qty
 
+
+def close_position(p, portfolio_id, asset, price, reason="manual_close", do_notify=True):
+    positions=p.setdefault("positions",{})
+    trades=p.setdefault("trades",[])
+    pos=positions.get(asset)
+    if not pos:
+        return None
+
+    fee=CFG["execution"]["fee_rate"]
+    slip=CFG["execution"]["slippage"]
+    side=pos.get("side","LONG")
+
+    if side=="SHORT":
+        exit_px=price*(1+slip)
+        margin=float(pos.get("margin_reserved",pos["entry"]*pos["qty"]))
+        exit_notional=pos["qty"]*exit_px
+        exit_fee=exit_notional*fee
+        pnl=(pos["entry"]-exit_px)*pos["qty"]-exit_fee-pos.get("entry_fee",0)
+        p["cash"] += margin + pnl
+    else:
+        exit_px=price*(1-slip)
+        gross=pos["qty"]*exit_px
+        exit_fee=gross*fee
+        pnl=(exit_px-pos["entry"])*pos["qty"]-exit_fee-pos.get("entry_fee",0)
+        p["cash"] += gross-exit_fee
+
+    trade={
+        "asset":asset,
+        "portfolio":portfolio_id,
+        "strategy_mode":pos.get("strategy_mode",portfolio_id),
+        "side":side,
+        "entry_time":pos["entry_time"],
+        "exit_time":datetime.now(timezone.utc).isoformat(),
+        "entry":pos["entry"],
+        "exit":exit_px,
+        "qty":pos["qty"],
+        "pnl":pnl,
+        "reason":reason,
+        "max_r_reached":pos.get("max_r_reached",0.0),
+    }
+    trades.append(trade)
+    del positions[asset]
+
+    label="HANDMATIG" if reason=="manual_close" else reason.upper()
+    add_event(
+        p,
+        "EXIT",
+        asset,
+        f"🛑 PAPER {side} EXIT — {portfolio_id.upper()} — {asset}\n"
+        f"Reden: {label}\nResultaat: €{pnl:.2f}",
+        trade,
+        do_notify
+    )
+    return trade
+
 def run_portfolio(p, portfolio_id):
     mode = "swing" if portfolio_id=="swing" else "active"
     fee=CFG["execution"]["fee_rate"]
@@ -49,77 +104,55 @@ def run_portfolio(p, portfolio_id):
         if pos:
             side=pos.get("side","LONG")
             atr_src=snap["1d"]["atr"] if mode=="swing" else snap["1h"]["atr"]
+
+            entry=float(pos["entry"])
+            initial_stop=float(pos.get("initial_stop",pos["trail_stop"]))
+            initial_risk=float(pos.get("initial_risk",abs(entry-initial_stop)))
+            if initial_risk<=0:
+                initial_risk=abs(entry-initial_stop) or max(entry*0.005,1e-9)
+
+            favorable_move=(entry-price) if side=="SHORT" else (price-entry)
+            current_r=favorable_move/initial_risk
+            pos["current_r"]=current_r
+            pos["max_r_reached"]=max(float(pos.get("max_r_reached",current_r)),current_r)
+
             trail_mult=prof["trail_atr"] if mode=="swing" else 2.0
+            if mode=="active" and pos["max_r_reached"]>=2.0:
+                trail_mult=1.5
+                pos["profit_lock_stage"]="2R_TIGHT_TRAIL"
+
             old_trail=float(pos["trail_stop"])
+            be_buffer=entry*((2*fee)+(2*slip))
 
             if side=="SHORT":
-                # For short positions the trailing stop moves DOWN, never back up.
-                new_trail=min(old_trail, price+trail_mult*atr_src)
+                candidate=price+trail_mult*atr_src
+                new_trail=min(old_trail,candidate)
+                if pos["max_r_reached"]>=1.0:
+                    new_trail=min(new_trail,entry-be_buffer)
+                    if pos.get("profit_lock_stage")!="2R_TIGHT_TRAIL":
+                        pos["profit_lock_stage"]="1R_BREAK_EVEN"
                 stop_hit=price>=new_trail
-                trend_exit=(
-                    mode=="active"
-                    and not (snap["4h"]["trend"]=="BEARISH" and snap["1h"]["trend"]=="BEARISH")
-                )
+                trend_exit=(mode=="active" and not (snap["4h"]["trend"]=="BEARISH" and snap["1h"]["trend"]=="BEARISH"))
             else:
-                new_trail=max(old_trail, price-trail_mult*atr_src)
+                candidate=price-trail_mult*atr_src
+                new_trail=max(old_trail,candidate)
+                if pos["max_r_reached"]>=1.0:
+                    new_trail=max(new_trail,entry+be_buffer)
+                    if pos.get("profit_lock_stage")!="2R_TIGHT_TRAIL":
+                        pos["profit_lock_stage"]="1R_BREAK_EVEN"
                 stop_hit=price<=new_trail
                 if mode=="swing":
-                    trend_exit=not (
-                        snap["1d"]["trend"]=="BULLISH"
-                        and snap["4h"]["trend"]=="BULLISH"
-                    )
+                    trend_exit=not (snap["1d"]["trend"]=="BULLISH" and snap["4h"]["trend"]=="BULLISH")
                 else:
-                    trend_exit=not (
-                        snap["4h"]["trend"]=="BULLISH"
-                        and snap["1h"]["trend"]=="BULLISH"
-                    )
+                    trend_exit=not (snap["4h"]["trend"]=="BULLISH" and snap["1h"]["trend"]=="BULLISH")
 
             pos["trail_stop"]=new_trail
             pos["last_price"]=price
             pos["unrealized_pnl"]=position_pnl(pos,price)
 
             if trend_exit or stop_hit:
-                if side=="SHORT":
-                    exit_px=price*(1+slip)
-                    gross_entry=float(pos.get("margin_reserved",pos["entry"]*pos["qty"]))
-                    exit_notional=pos["qty"]*exit_px
-                    exit_fee=exit_notional*fee
-                    pnl=(pos["entry"]-exit_px)*pos["qty"]-exit_fee-pos.get("entry_fee",0)
-                    # return reserved margin plus realized P/L
-                    p["cash"] += gross_entry + pnl
-                else:
-                    exit_px=price*(1-slip)
-                    gross=pos["qty"]*exit_px
-                    exit_fee=gross*fee
-                    pnl=(exit_px-pos["entry"])*pos["qty"]-exit_fee-pos.get("entry_fee",0)
-                    p["cash"] += gross-exit_fee
-
                 reason="trend_exit" if trend_exit else "trailing_stop"
-                trade={
-                    "asset":asset,
-                    "portfolio":portfolio_id,
-                    "strategy_mode":mode,
-                    "side":side,
-                    "entry_time":pos["entry_time"],
-                    "exit_time":datetime.now(timezone.utc).isoformat(),
-                    "entry":pos["entry"],
-                    "exit":exit_px,
-                    "qty":pos["qty"],
-                    "pnl":pnl,
-                    "reason":reason
-                }
-                trades.append(trade)
-
-                emoji="🔵" if side=="LONG" else "🔴"
-                add_event(
-                    p,
-                    "EXIT",
-                    asset,
-                    f"🛑 PAPER {side} EXIT — {portfolio_id.upper()} — {asset}\nResultaat: €{pnl:.2f}",
-                    trade,
-                    True
-                )
-                del positions[asset]
+                close_position(p,portfolio_id,asset,price,reason=reason,do_notify=True)
                 pos=None
 
         # ----- open new position -----
@@ -175,7 +208,11 @@ def run_portfolio(p, portfolio_id):
                         "entry":entry,
                         "qty":qty,
                         "initial_stop":stop,
+                        "initial_risk":abs(entry-stop),
                         "trail_stop":stop,
+                        "current_r":0.0,
+                        "max_r_reached":0.0,
+                        "profit_lock_stage":"NONE",
                         "entry_fee":entry_fee,
                         "last_price":price,
                         "margin_reserved":margin_reserved,
@@ -205,7 +242,11 @@ def run_portfolio(p, portfolio_id):
                         "entry":entry,
                         "qty":qty,
                         "initial_stop":stop,
+                        "initial_risk":abs(entry-stop),
                         "trail_stop":stop,
+                        "current_r":0.0,
+                        "max_r_reached":0.0,
+                        "profit_lock_stage":"NONE",
                         "entry_fee":entry_fee,
                         "last_price":price,
                         "unrealized_pnl":0.0

@@ -4,9 +4,18 @@ def realized_pnl(p):
     return sum(float(t.get("pnl",0)) for t in p.get("trades",[]))
 
 def current_equity(p):
-    eq=float(p.get("cash",0))
+    cash=float(p.get("cash",0))
+    eq=cash
     for pos in p.get("positions",{}).values():
-        eq += float(pos.get("qty",0))*float(pos.get("last_price",pos.get("entry",0)))
+        qty=float(pos.get("qty",0))
+        entry=float(pos.get("entry",0))
+        last=float(pos.get("last_price",entry))
+        side=pos.get("side","LONG")
+        if side=="SHORT":
+            margin=float(pos.get("margin_reserved",entry*qty))
+            eq += margin + (entry-last)*qty
+        else:
+            eq += qty*last
     return eq
 
 def open_pnl(p):

@@ -3,10 +3,10 @@ import altair as alt
 import streamlit as st
 from trading_core import CFG, fetch, market_snapshot, desired_action
 from storage import load_state, save_state
-from paper_runner import run_once
+from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.3.1.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -293,11 +293,29 @@ def render_position_charts(pid):
                     open_pct = ((current_price - entry_price) / entry_price) * 100 if entry_price else 0.0
                     distance_stop = ((current_price - stop_price) / current_price) * 100 if current_price else 0.0
 
+                initial_risk = float(pos.get("initial_risk", abs(entry_price-float(pos.get("initial_stop",stop_price)))))
+                if side == "SHORT":
+                    current_r = (entry_price-current_price)/initial_risk if initial_risk else 0.0
+                else:
+                    current_r = (current_price-entry_price)/initial_risk if initial_risk else 0.0
+                max_r = max(float(pos.get("max_r_reached",current_r)), current_r)
+                lock_stage = pos.get("profit_lock_stage","NONE")
+
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Huidige koers", f"{current_price:,.2f}")
                 c2.metric("Entry", f"{entry_price:,.2f}")
                 c3.metric("Trailing stop", f"{stop_price:,.2f}")
                 c4.metric(f"Open P/L ({side})", f"€{open_pnl:,.2f}", f"{open_pct:+.2f}%")
+
+                r1, r2, r3 = st.columns(3)
+                r1.metric("Huidige R", f"{current_r:.2f}R")
+                r2.metric("Hoogste R", f"{max_r:.2f}R")
+                stage_text = {
+                    "NONE":"Normale trailing",
+                    "1R_BREAK_EVEN":"Break-even beschermd",
+                    "2R_TIGHT_TRAIL":"Winst-lock actief",
+                }.get(lock_stage, lock_stage)
+                r3.metric("Winstbescherming", stage_text)
 
                 base = alt.Chart(chart_df).encode(
                     x=alt.X("time:T", title=None)
@@ -394,6 +412,56 @@ def render_position_charts(pid):
                     f"Timeframe: {tf_label} • Positie: {side}"
                 )
 
+                st.markdown("#### Positie beheren")
+                confirm_key=f"confirm_close_{pid}_{asset}"
+
+                if not st.session_state.get(confirm_key,False):
+                    if st.button(
+                        f"💰 {asset} positie sluiten / winst nemen",
+                        key=f"close_btn_{pid}_{asset}",
+                    ):
+                        st.session_state[confirm_key]=True
+                        st.rerun()
+                else:
+                    st.warning(
+                        f"Bevestig: {asset} {side} sluiten tegen de recentste beschikbare koers "
+                        f"({current_price:,.2f})?"
+                    )
+                    b1,b2=st.columns(2)
+
+                    if b1.button(
+                        "✅ Ja, positie sluiten",
+                        key=f"confirm_yes_{pid}_{asset}",
+                        type="primary",
+                    ):
+                        fresh_state,_=load_state()
+                        fresh_p=fresh_state["portfolios"][pid]
+                        if asset not in fresh_p.get("positions",{}):
+                            st.warning("Deze positie is intussen al gesloten.")
+                        else:
+                            trade=close_position(
+                                fresh_p,
+                                pid,
+                                asset,
+                                current_price,
+                                reason="manual_close",
+                                do_notify=True,
+                            )
+                            save_state(fresh_state,update_last_run=False)
+                            st.session_state[confirm_key]=False
+                            if trade:
+                                st.success(
+                                    f"{asset} gesloten. Gerealiseerd resultaat: €{trade['pnl']:.2f}"
+                                )
+                            st.rerun()
+
+                    if b2.button(
+                        "Annuleren",
+                        key=f"confirm_no_{pid}_{asset}",
+                    ):
+                        st.session_state[confirm_key]=False
+                        st.rerun()
+
             except Exception as e:
                 st.warning(
                     f"Grafiek voor {asset} kon niet geladen worden: {type(e).__name__}"
@@ -477,7 +545,7 @@ with tabs[2]:
 
     st.markdown(
         '<div class="section-head"><div class="section-title">Active Portfolio</div>'
-        '<div class="section-sub">4H / 1H / 15m — LONG + SHORT. Automatische controle elke 5 minuten op afgesloten candles.</div></div>',
+        '<div class="section-sub">4H / 1H / 15m — LONG + SHORT • break-even vanaf +1R • strakkere trailing vanaf +2R.</div></div>',
         unsafe_allow_html=True,
     )
     render_kpis([
@@ -633,6 +701,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.3.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
