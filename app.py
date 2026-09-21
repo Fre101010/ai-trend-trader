@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.1.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.2.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -251,6 +251,130 @@ div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
     padding:.5rem .72rem !important;
     font-size:.88rem !important;
   }
+}
+
+
+/* v2.4.2 premium pill navigation */
+div[data-testid="stTabs"] {
+  margin-top:.35rem;
+}
+
+/* Horizontal scroll container */
+div[data-testid="stTabs"] > div:first-child {
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  scrollbar-width:none !important;
+  -webkit-overflow-scrolling:touch;
+  padding:.25rem .05rem .55rem .05rem;
+}
+div[data-testid="stTabs"] > div:first-child::-webkit-scrollbar{
+  display:none !important;
+}
+
+div[data-testid="stTabs"] [role="tablist"]{
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  gap:.55rem !important;
+  min-width:max-content !important;
+  border-bottom:0 !important;
+  padding:.15rem .05rem !important;
+}
+
+/* Pills */
+div[data-testid="stTabs"] button[role="tab"]{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-height:44px !important;
+  padding:.62rem .95rem !important;
+  border-radius:999px !important;
+  border:1px solid #dce8f3 !important;
+  background:#ffffff !important;
+  color:#35516d !important;
+  font-weight:800 !important;
+  font-size:.9rem !important;
+  white-space:nowrap !important;
+  box-shadow:0 4px 14px rgba(27,61,96,.06) !important;
+  transition:all .18s ease !important;
+  opacity:1 !important;
+}
+
+/* Active pill */
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"]{
+  background:linear-gradient(135deg,#2f80ed,#1d6fd5) !important;
+  color:#ffffff !important;
+  border-color:#2f80ed !important;
+  box-shadow:0 7px 18px rgba(47,128,237,.24) !important;
+  transform:translateY(-1px);
+}
+
+/* Text inside pills */
+div[data-testid="stTabs"] button[role="tab"] p,
+div[data-testid="stTabs"] button[role="tab"] span{
+  color:inherit !important;
+  font-weight:inherit !important;
+  opacity:1 !important;
+  margin:0 !important;
+}
+
+/* Kill Streamlit's default underline */
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"]{
+  display:none !important;
+}
+div[data-testid="stTabs"] [data-baseweb="tab-border"]{
+  display:none !important;
+}
+
+/* Hover only where supported */
+@media (hover:hover){
+  div[data-testid="stTabs"] button[role="tab"]:hover{
+    border-color:#aacbec !important;
+    background:#f5f9fe !important;
+    color:#245f9d !important;
+    transform:translateY(-1px);
+  }
+  div[data-testid="stTabs"] button[role="tab"][aria-selected="true"]:hover{
+    background:linear-gradient(135deg,#2f80ed,#1d6fd5) !important;
+    color:#fff !important;
+  }
+}
+
+/* Mobile nav: comfortable finger-sized pills and subtle fade cue */
+@media(max-width:650px){
+  div[data-testid="stTabs"]{
+    position:relative;
+    margin-left:-.1rem;
+    margin-right:-.1rem;
+  }
+
+  div[data-testid="stTabs"] > div:first-child{
+    padding:.4rem .15rem .7rem .15rem !important;
+  }
+
+  div[data-testid="stTabs"] [role="tablist"]{
+    gap:.5rem !important;
+  }
+
+  div[data-testid="stTabs"] button[role="tab"]{
+    min-height:46px !important;
+    padding:.64rem .9rem !important;
+    font-size:.86rem !important;
+    border-radius:15px !important;
+  }
+}
+
+/* Nested open-position tabs slightly more compact, still readable. */
+div[data-testid="stTabs"] div[data-testid="stTabs"] button[role="tab"]{
+  min-height:40px !important;
+  padding:.52rem .8rem !important;
+  font-size:.82rem !important;
+  background:#f8fbfe !important;
+}
+div[data-testid="stTabs"] div[data-testid="stTabs"] button[role="tab"][aria-selected="true"]{
+  background:linear-gradient(135deg,#ef5963,#d94650) !important;
+  color:#fff !important;
+  border-color:#ef5963 !important;
+  box-shadow:0 6px 16px rgba(239,89,99,.2) !important;
 }
 
 </style>
@@ -597,13 +721,13 @@ def render_position_charts(pid):
                 )
 
 tabs = st.tabs([
-    "Dashboard",
-    "Swing Portfolio",
-    "Active Portfolio",
-    "Transfer",
-    "Instrumenten",
-    "Live scanner",
-    "Historiek",
+    "🏠 Dashboard",
+    "📈 Swing",
+    "⚡ Active",
+    "🔁 Transfer",
+    "🎛 Instrumenten",
+    "🔎 Scanner",
+    "📚 Historiek",
 ])
 
 with tabs[0]:
@@ -830,6 +954,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.2 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
