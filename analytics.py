@@ -157,3 +157,30 @@ def weekly_summary(state):
         "trades": stats["count"],
         "sharpe_like": sharpe_like(state)
     }
+
+
+def marked_portfolio_values(state, live_prices=None):
+    live_prices = live_prices or {}
+    cash = float(state.get("cash", 0.0))
+    market_value = 0.0
+    open_pnl_value = 0.0
+
+    for asset, pos in state.get("positions", {}).items():
+        entry = float(pos.get("entry", 0.0))
+        qty = float(pos.get("qty", 0.0))
+        px = float(live_prices.get(asset, pos.get("last_price", entry)))
+        market_value += qty * px
+        open_pnl_value += (px - entry) * qty
+
+    equity = cash + market_value
+    starting = float(state.get("starting_equity", 5000.0) or 5000.0)
+    total_return_pct = ((equity / starting) - 1.0) * 100.0 if starting else 0.0
+
+    return {
+        "cash": cash,
+        "market_value": market_value,
+        "equity": equity,
+        "open_pnl": open_pnl_value,
+        "realized_pnl": realized_pnl(state),
+        "total_return_pct": total_return_pct,
+    }

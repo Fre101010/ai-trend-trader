@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from trading_core import CFG, market_snapshot, desired_action, action_details
+from trading_core import CFG, market_snapshot, desired_action, action_details, fetch
 from storage import load_state, get_secret, save_state
 from paper_runner import run_once
 from notifier import notify
@@ -9,18 +9,19 @@ from risk_guard import suggested_settings, clamp_settings, portfolio_heat_pct, H
 from analytics import (
     current_equity, realized_pnl, open_pnl, trade_stats,
     max_drawdown_pct, return_since_start_pct, per_market_stats,
-    forward_test_table, weekly_summary
+    forward_test_table, weekly_summary, marked_portfolio_values
 )
 
-st.set_page_config(page_title="AI Trend Trader v1.2.1",page_icon="📈",layout="wide")
+st.set_page_config(page_title="AI Trend Trader v1.2.3",page_icon="📈",layout="wide")
 st.markdown("""<style>
 .block-container{padding-top:1rem;padding-bottom:4rem;max-width:1180px}
 .stButton>button{width:100%;min-height:48px;border-radius:14px;font-weight:700}
 div[data-testid="stMetric"]{border:1px solid rgba(128,128,128,.25);border-radius:16px;padding:12px}
 </style>""",unsafe_allow_html=True)
 
-st.title("📈 AI Trend Trader v1.2.1")
+st.title("📈 AI Trend Trader v1.2.3")
 st.caption("Trading companion • signalen • bevestigen • Auto Paper • voorbereid op Auto Live")
+st.caption("Laatste koers en open P/L gebruiken de recentste beschikbare 1H-prijs; trendlogica blijft 1D/4H/1H.")
 st.success("🔒 PAPER ONLY — geen echte orders of brokerkoppeling.")
 
 state,mode=load_state()
@@ -40,6 +41,19 @@ elif discord_ready:
 else:
     st.info("🔕 Meldingen nog niet gekoppeld. Paper trading blijft wel werken.")
 
+
+def latest_live_prices(state):
+    prices = {}
+    for asset in state.get("positions", {}):
+        try:
+            meta = CFG["portfolio"]["assets"][asset]
+            d = fetch(meta["ticker"], "1h")
+            if not d.empty:
+                prices[asset] = float(d["close"].iloc[-1])
+        except Exception:
+            pass
+    return prices
+
 tabs=st.tabs(["Dashboard","Automatisering","Instrumenten","Forward test","Performance","Live scanner","Events","Tradehistoriek","Meldingen"])
 
 with tabs[0]:
@@ -54,13 +68,20 @@ with tabs[0]:
     positions=state.get("positions",{})
     trades=state.get("trades",[])
     hist=state.get("equity_history",[])
-    eq=current_equity(state)
+
+    with st.spinner("Actuele portefeuillewaarden ophalen..."):
+        live_prices=latest_live_prices(state)
+    marks=marked_portfolio_values(state, live_prices)
 
     c1,c2,c3,c4=st.columns(4)
-    c1.metric("Equity",f"€{eq:,.2f}",f"{return_since_start_pct(state):+.2f}%")
-    c2.metric("Paper cash",f"€{state.get('cash',0):,.2f}")
-    c3.metric("Open P/L",f"€{open_pnl(state):,.2f}")
-    c4.metric("Gerealiseerd P/L",f"€{realized_pnl(state):,.2f}")
+    c1.metric("Equity",f"€{marks['equity']:,.2f}",f"{marks['total_return_pct']:+.2f}%")
+    c2.metric("Paper cash",f"€{marks['cash']:,.2f}")
+    c3.metric("Open P/L",f"€{marks['open_pnl']:,.2f}")
+    c4.metric("Gerealiseerd P/L",f"€{marks['realized_pnl']:,.2f}")
+
+    c1,c2=st.columns(2)
+    c1.metric("Waarde open posities",f"€{marks['market_value']:,.2f}")
+    c2.metric("Totale P/L sinds start",f"€{marks['equity']-float(state.get('starting_equity',5000.0)):,.2f}")
 
     c1,c2,c3,c4=st.columns(4)
     stats=trade_stats(state)
@@ -72,6 +93,7 @@ with tabs[0]:
     c4.metric("Max drawdown",f"{max_drawdown_pct(state):.2f}%")
 
     st.caption(f"Laatste run: {state.get('last_run') or 'nog niet uitgevoerd'}")
+    st.caption("Dashboardwaarden worden bij elke herlaadbeurt opnieuw gewaardeerd met de recentste beschikbare 1H-koers.")
 
     enabled_assets=state.setdefault("enabled_assets", {})
     for asset in CFG["portfolio"]["assets"]:
@@ -82,7 +104,7 @@ with tabs[0]:
         pos=positions.get(asset)
         trade_enabled=enabled_assets.get(asset,True)
         if pos:
-            last_price=pos.get("last_price",pos["entry"])
+            last_price=live_prices.get(asset,pos.get("last_price",pos["entry"]))
             qty=float(pos.get("qty",0))
             open_pnl_eur=(last_price-pos["entry"])*qty
             open_pct=((last_price-pos["entry"])/pos["entry"])*100
@@ -392,7 +414,7 @@ with tabs[8]:
     st.write("v0.9 kan daarnaast elke avond één dagelijkse portfolio-samenvatting sturen.")
     if telegram_ready or discord_ready:
         if st.button("🔔 Stuur testmelding"):
-            ok,target=notify("✅ AI Trend Trader v1.2.1 testmelding — notificaties werken.")
+            ok,target=notify("✅ AI Trend Trader v1.2.3 testmelding — notificaties werken.")
             if ok:
                 st.success(f"Testmelding verstuurd via {target}.")
             else:
