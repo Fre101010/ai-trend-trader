@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.4.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.5.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -647,6 +647,24 @@ div[data-testid="stTabs"] [role="tabpanel"],
   }
 }
 
+
+/* v2.4.5 chart range selector */
+[data-testid="stSegmentedControl"] {
+  max-width:100% !important;
+  margin:.15rem 0 .55rem 0 !important;
+}
+[data-testid="stSegmentedControl"] button {
+  min-height:38px !important;
+  border-radius:12px !important;
+  font-size:.78rem !important;
+  font-weight:750 !important;
+}
+@media(max-width:650px){
+  [data-testid="stSegmentedControl"]{
+    width:100% !important;
+  }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -790,7 +808,21 @@ def render_position_charts(pid):
 
             try:
                 ticker = CFG["portfolio"]["assets"][asset]["ticker"]
-                df = fetch(ticker, tf).tail(140).copy()
+
+                range_options = {
+                    "Kort": 60,
+                    "Normaal": 100,
+                    "Ruim": 140,
+                }
+                range_choice = st.segmented_control(
+                    "Grafiekbereik",
+                    options=list(range_options.keys()),
+                    default="Normaal",
+                    key=f"chart_range_{pid}_{asset}",
+                    label_visibility="collapsed",
+                )
+                candle_count = range_options.get(range_choice or "Normaal", 100)
+                df = fetch(ticker, tf).tail(candle_count).copy()
 
                 if df.empty:
                     st.warning(f"Geen koersdata beschikbaar voor {asset}.")
@@ -840,8 +872,20 @@ def render_position_charts(pid):
                 }.get(lock_stage, lock_stage)
                 r3.metric("Winstbescherming", stage_text)
 
+                # Extra lege ruimte rechts zodat de huidige koers niet tegen
+                # de rand van de grafiek geplakt staat.
+                x_start = chart_df["time"].min()
+                x_last = chart_df["time"].max()
+                x_span = x_last - x_start
+                right_padding = x_span * 0.12 if x_span > pd.Timedelta(0) else pd.Timedelta(hours=1)
+                x_end = x_last + right_padding
+
                 base = alt.Chart(chart_df).encode(
-                    x=alt.X("time:T", title=None)
+                    x=alt.X(
+                        "time:T",
+                        title=None,
+                        scale=alt.Scale(domain=[x_start, x_end])
+                    )
                 )
 
                 price_line = base.mark_line(
@@ -881,7 +925,7 @@ def render_position_charts(pid):
                     size=95,
                     color="#2F80ED",
                 ).encode(
-                    x="time:T",
+                    x=alt.X("time:T", scale=alt.Scale(domain=[x_start, x_end])),
                     y="close:Q"
                 )
 
@@ -904,7 +948,7 @@ def render_position_charts(pid):
                     fontSize=11,
                     fontWeight="bold",
                 ).encode(
-                    x="time:T",
+                    x=alt.X("time:T", scale=alt.Scale(domain=[x_start, x_end])),
                     y="y:Q",
                     text="label:N",
                     color=alt.Color(
@@ -932,7 +976,8 @@ def render_position_charts(pid):
 
                 st.caption(
                     f"Afstand huidige koers tot trailing stop: {distance_stop:.2f}% • "
-                    f"Timeframe: {tf_label} • Positie: {side}"
+                    f"Timeframe: {tf_label} • Positie: {side} • "
+                    f"Grafiekbereik: {range_choice or 'Normaal'}"
                 )
 
                 st.markdown("#### Positie beheren")
@@ -1222,6 +1267,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.4 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.5 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
