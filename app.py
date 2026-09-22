@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.3.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.4.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -494,6 +494,156 @@ div[data-testid="stTabs"] [role="tabpanel"] {
   .kpi-grid{
     width:100% !important;
     grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+
+/* v2.4.4 — mobile navigation + clipped content fix */
+
+/* iOS Safari: keep the document anchored to the viewport. */
+html, body {
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:clip !important;
+  overscroll-behavior-x:none !important;
+  touch-action:pan-y !important;
+}
+
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+.block-container {
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  margin-left:0 !important;
+  margin-right:0 !important;
+  transform:none !important;
+}
+
+/* Do not horizontally scroll the menu anymore. All buttons wrap. */
+div[data-testid="stTabs"] {
+  width:100% !important;
+  max-width:100% !important;
+  overflow:visible !important;
+}
+
+div[data-testid="stTabs"] > div:first-child {
+  width:100% !important;
+  max-width:100% !important;
+  overflow:visible !important;
+  touch-action:pan-y !important;
+  padding:.35rem 0 .65rem 0 !important;
+}
+
+div[data-testid="stTabs"] [role="tablist"] {
+  display:flex !important;
+  flex-wrap:wrap !important;
+  width:100% !important;
+  min-width:0 !important;
+  gap:.45rem !important;
+  padding:0 !important;
+}
+
+div[data-testid="stTabs"] button[role="tab"] {
+  flex:0 0 auto !important;
+  min-width:0 !important;
+  max-width:100% !important;
+}
+
+/* Main content panels may never extend outside the viewport. */
+div[data-testid="stTabs"] [role="tabpanel"],
+[data-testid="stVerticalBlock"],
+[data-testid="stHorizontalBlock"],
+[data-testid="column"],
+[data-testid="stToggle"],
+[data-testid="stButton"],
+[data-testid="stMarkdownContainer"] {
+  max-width:100% !important;
+  min-width:0 !important;
+}
+
+/* Toggle labels stay inside the screen. */
+[data-testid="stToggle"] label,
+[data-testid="stToggle"] p,
+[data-testid="stToggle"] span {
+  white-space:normal !important;
+  overflow-wrap:anywhere !important;
+}
+
+/* Buttons and controls should not push the page wider. */
+[data-testid="stButton"] button,
+[data-testid="stSelectbox"],
+[data-testid="stNumberInput"],
+[data-testid="stRadio"] {
+  max-width:100% !important;
+}
+
+/* Charts: vertical page scrolling only, no plot dragging. */
+[data-testid="stVegaLiteChart"] {
+  width:100% !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+  touch-action:pan-y !important;
+}
+
+@media(max-width:650px){
+  .block-container {
+    width:100% !important;
+    max-width:100% !important;
+    padding-left:.8rem !important;
+    padding-right:.8rem !important;
+    overflow-x:clip !important;
+  }
+
+  .hero {
+    width:100% !important;
+    max-width:100% !important;
+    margin:0 0 1rem 0 !important;
+  }
+
+  /* Main menu pills form a clean button grid instead of disappearing off-screen. */
+  div[data-testid="stTabs"] [role="tablist"] {
+    gap:.45rem !important;
+  }
+
+  div[data-testid="stTabs"] button[role="tab"] {
+    flex:1 1 calc(50% - .45rem) !important;
+    width:auto !important;
+    min-height:44px !important;
+    padding:.58rem .65rem !important;
+    justify-content:center !important;
+    text-align:center !important;
+    border-radius:14px !important;
+    font-size:.80rem !important;
+  }
+
+  /* Position tabs can be narrower; they also wrap safely. */
+  div[data-testid="stTabs"] div[data-testid="stTabs"] button[role="tab"] {
+    flex:0 1 auto !important;
+    min-width:110px !important;
+  }
+
+  /* Instrument switches in a clean full-width vertical list. */
+  [data-testid="stToggle"] {
+    width:100% !important;
+    padding:.18rem 0 !important;
+  }
+
+  [data-testid="stToggle"] label {
+    width:100% !important;
+    display:flex !important;
+  }
+
+  /* Prevent long headings from being clipped on the left/right. */
+  h1,h2,h3,h4,
+  .section-title,
+  .section-sub,
+  .portfolio-title,
+  .portfolio-sub {
+    max-width:100% !important;
+    overflow-wrap:anywhere !important;
   }
 }
 
@@ -1004,11 +1154,9 @@ with tabs[4]:
         st.markdown(f"### {label}")
         p = state["portfolios"][pid]
         enabled = p.setdefault("enabled_assets", {})
-        cols = st.columns(2)
-
-        for i, asset in enumerate(CFG["portfolio"]["assets"]):
+        for asset in CFG["portfolio"]["assets"]:
             enabled.setdefault(asset, True)
-            enabled[asset] = cols[i % 2].toggle(
+            enabled[asset] = st.toggle(
                 asset,
                 value=enabled[asset],
                 key=f"{pid}_{asset}",
@@ -1074,6 +1222,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.3 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.4 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
