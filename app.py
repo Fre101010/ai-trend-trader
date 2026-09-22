@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.2.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.3.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -377,6 +377,126 @@ div[data-testid="stTabs"] div[data-testid="stTabs"] button[role="tab"][aria-sele
   box-shadow:0 6px 16px rgba(239,89,99,.2) !important;
 }
 
+
+/* v2.4.3 — hard mobile viewport lock */
+html,
+body,
+#root,
+[data-testid="stAppViewContainer"],
+.stApp {
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:hidden !important;
+  overscroll-behavior-x:none !important;
+}
+
+*,
+*::before,
+*::after { box-sizing:border-box; }
+
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],
+.block-container {
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  overflow-x:hidden !important;
+}
+
+.hero,
+.status-grid,
+.kpi-grid,
+.portfolio-grid,
+.portfolio-card,
+.kpi,
+.section-head,
+[data-testid="stDataFrame"],
+[data-testid="stVegaLiteChart"],
+[data-testid="stVegaLiteChart"] > div,
+iframe {
+  max-width:100% !important;
+  min-width:0 !important;
+}
+
+[data-testid="stVegaLiteChart"] {
+  width:100% !important;
+  overflow:hidden !important;
+  touch-action:pan-y !important;
+  overscroll-behavior-x:none !important;
+}
+
+div[data-testid="stTabs"] {
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  overflow:hidden !important;
+}
+
+div[data-testid="stTabs"] > div:first-child {
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  overscroll-behavior-x:contain !important;
+  touch-action:pan-x !important;
+  -webkit-overflow-scrolling:touch;
+}
+
+div[data-testid="stTabs"] [role="tabpanel"] {
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  overflow-x:hidden !important;
+}
+
+[data-testid="stDataFrame"] {
+  width:100% !important;
+  overflow-x:auto !important;
+  overscroll-behavior-x:contain !important;
+}
+
+@media(max-width:650px){
+  .block-container{
+    width:100% !important;
+    max-width:100vw !important;
+    padding-left:.75rem !important;
+    padding-right:.75rem !important;
+    margin:0 !important;
+  }
+
+  .hero{
+    width:100% !important;
+    max-width:100% !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+    padding:1rem !important;
+  }
+
+  .brand{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+  }
+
+  .hero-title,
+  .hero-sub,
+  .hero-desc,
+  .status-title,
+  .status-sub{
+    overflow-wrap:anywhere;
+  }
+
+  .status-grid{
+    width:100% !important;
+    grid-template-columns:1fr !important;
+  }
+
+  .kpi-grid{
+    width:100% !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -656,7 +776,7 @@ def render_position_charts(pid):
                     + stop_rule
                     + current_point
                     + label_chart
-                ).properties(height=340).interactive()
+                ).properties(height=340)
 
                 st.altair_chart(chart, use_container_width=True)
 
@@ -954,6 +1074,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.2 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.3 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
