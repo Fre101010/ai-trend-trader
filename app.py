@@ -1,13 +1,13 @@
 import pandas as pd
 import altair as alt
 import streamlit as st
-from trading_core import CFG, fetch, market_snapshot, desired_action
+from trading_core import CFG, fetch, market_snapshot, desired_action, active_diagnostics
 from storage import load_state, save_state, StorageUnavailable
 from paper_runner import run_once, close_position
 from clean_reset import clean_reset
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.5.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.5.2", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -848,6 +848,7 @@ def render_position_charts(pid):
                 time_col = chart_df.columns[0]
                 chart_df = chart_df.rename(columns={time_col: "time"})
                 chart_df["time"] = pd.to_datetime(chart_df["time"])
+                latest_market_time = chart_df["time"].iloc[-1]
 
                 current_price = float(chart_df["close"].iloc[-1])
                 entry_price = float(pos["entry"])
@@ -993,7 +994,8 @@ def render_position_charts(pid):
                 st.caption(
                     f"Afstand huidige koers tot trailing stop: {distance_stop:.2f}% • "
                     f"Timeframe: {tf_label} • Positie: {side} • "
-                    f"Grafiekbereik: {range_choice or 'Normaal'}"
+                    f"Grafiekbereik: {range_choice or 'Normaal'} • "
+                    f"Laatste marktdata: {latest_market_time}"
                 )
 
                 st.markdown("#### Positie beheren")
@@ -1287,41 +1289,70 @@ with tabs[4]:
 with tabs[5]:
     st.markdown(
         '<div class="section-head"><div class="section-title">Live scanner</div>'
-        '<div class="section-sub">Vergelijk de trendvoorwaarden voor Swing of Active.</div></div>',
+        '<div class="section-sub">Zie niet alleen de trend, maar ook waarom een trade wel of niet mag openen.</div></div>',
         unsafe_allow_html=True,
     )
 
     portfolio = st.radio("Scanner voor", ["Swing", "Active"], horizontal=True)
     mode_sel = portfolio.lower()
 
+    if mode_sel == "active":
+        last_run = state["portfolios"]["active"].get("last_run")
+        if last_run:
+            st.info(f"⚡ Laatste Active runner: {last_run}")
+        else:
+            st.warning("Nog geen Active runner-tijd geregistreerd sinds v2.5.2.")
+
     if st.button("🔎 Scan markten", type="primary"):
-        out = []
+        out=[]
+        detail={}
         with st.spinner(f"{portfolio}-markten analyseren..."):
             for asset in CFG["portfolio"]["assets"]:
-                s = market_snapshot(asset, mode_sel)
-                act = desired_action(asset, s, mode_sel)
+                s=market_snapshot(asset,mode_sel)
+                act=desired_action(asset,s,mode_sel)
 
-                if mode_sel == "swing":
+                if mode_sel=="swing":
                     out.append({
-                        "Markt": asset,
-                        "1D": s["1d"]["trend"],
-                        "4H": s["4h"]["trend"],
-                        "1H": s["1h"]["trend"],
-                        "Actie": act,
+                        "Markt":asset,
+                        "1D":s["1d"]["trend"],
+                        "4H":s["4h"]["trend"],
+                        "1H":s["1h"]["trend"],
+                        "Actie":act
                     })
                 else:
+                    d=active_diagnostics(asset,s)
                     out.append({
-                        "Markt": asset,
-                        "4H": s["4h"]["trend"],
-                        "1H": s["1h"]["trend"],
-                        "15m": s["15m"]["trend"],
-                        "Actie": act,
+                        "Markt":asset,
+                        "4H":s["4h"]["trend"],
+                        "1H":s["1h"]["trend"],
+                        "15m":s["15m"]["trend"],
+                        "ADX 4H":round(d["adx_4h"],1),
+                        "RSI 15m":round(d["rsi_15m"],1),
+                        "Actie":d["action"],
                     })
+                    detail[asset]=d
 
-        st.session_state["scan_v21"] = pd.DataFrame(out)
+        st.session_state["scan_v252"]=pd.DataFrame(out)
+        st.session_state["scan_detail_v252"]=detail
 
-    if "scan_v21" in st.session_state:
-        st.dataframe(st.session_state["scan_v21"], use_container_width=True, hide_index=True)
+    if "scan_v252" in st.session_state:
+        st.dataframe(st.session_state["scan_v252"],use_container_width=True,hide_index=True)
+
+        if mode_sel=="active" and st.session_state.get("scan_detail_v252"):
+            st.markdown("### Waarom wel/niet instappen?")
+            for asset,d in st.session_state["scan_detail_v252"].items():
+                icon = "🟢" if d["action"]=="LONG" else ("🔴" if d["action"]=="SHORT" else "⚪")
+                with st.expander(f"{icon} {asset} — {d['action']}"):
+                    st.caption(
+                        f"Laatste afgesloten candles — 15m: {d['last_15m_candle']} • "
+                        f"1H: {d['last_1h_candle']} • 4H: {d['last_4h_candle']}"
+                    )
+                    if d["action"]=="CASH":
+                        st.write("**Blokkerende filters:**")
+                        for reason in d["reasons"]:
+                            st.write(f"❌ {reason}")
+                    else:
+                        st.success("Alle vereiste filters zijn geldig.")
 
 with tabs[6]:
     st.markdown(
@@ -1339,6 +1370,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.5.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.5.2 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

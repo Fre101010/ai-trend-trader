@@ -174,3 +174,71 @@ def size_for_risk(capital,price,stop,risk_multiplier=1.0,risk_pct=None):
     rb=capital*rp*float(risk_multiplier)
     u=abs(price-stop)
     return 0 if u<=0 else max(0,min(rb/u,(capital*CFG['risk']['max_position_fraction'])/price))
+
+
+def active_diagnostics(asset, s):
+    """Return transparent Active long/short filter diagnostics."""
+    meta=CFG["portfolio"]["assets"][asset]
+    p=CFG["profiles"][meta["profile"]]
+
+    h4=s["4h"]
+    h1=s["1h"]
+    m15=s["15m"]
+
+    min_adx=max(16,p.get("min_adx",18)-2)
+
+    checks_long = {
+        "4H trend bullish": h4["trend"]=="BULLISH",
+        "4H boven EMA50": h4["price"]>h4["ema50"],
+        f"4H ADX ≥ {min_adx:.0f}": h4["adx"]>=min_adx,
+        "1H trend bullish": h1["trend"]=="BULLISH",
+        "1H boven EMA20": h1["price"]>h1["ema20"],
+        "1H longscore ≥ shortscore": h1["L"]>=h1["S"],
+        "15m longscore ≥ shortscore": m15["L"]>=m15["S"],
+        "15m RSI 45–72": 45<=m15["rsi"]<=72,
+        "15m boven EMA20": m15["price"]>m15["ema20"],
+    }
+
+    checks_short = {
+        "4H trend bearish": h4["trend"]=="BEARISH",
+        "4H onder EMA50": h4["price"]<h4["ema50"],
+        f"4H ADX ≥ {min_adx:.0f}": h4["adx"]>=min_adx,
+        "1H trend bearish": h1["trend"]=="BEARISH",
+        "1H onder EMA20": h1["price"]<h1["ema20"],
+        "1H shortscore ≥ longscore": h1["S"]>=h1["L"],
+        "15m shortscore ≥ longscore": m15["S"]>=m15["L"],
+        "15m RSI 28–55": 28<=m15["rsi"]<=55,
+        "15m onder EMA20": m15["price"]<m15["ema20"],
+    }
+
+    long_ok=all(checks_long.values())
+    short_ok=all(checks_short.values())
+
+    if long_ok:
+        action="LONG"
+        reasons=["Alle LONG-filters OK"]
+    elif short_ok:
+        action="SHORT"
+        reasons=["Alle SHORT-filters OK"]
+    else:
+        action="CASH"
+        # Show the most useful failed LONG checks first when trend is bullish,
+        # otherwise failed SHORT checks.
+        if h4["trend"]=="BULLISH" or h1["trend"]=="BULLISH":
+            reasons=[name for name,ok in checks_long.items() if not ok]
+        elif h4["trend"]=="BEARISH" or h1["trend"]=="BEARISH":
+            reasons=[name for name,ok in checks_short.items() if not ok]
+        else:
+            reasons=["Geen overtuigend 4H/1H regime"]
+
+    return {
+        "action": action,
+        "reasons": reasons,
+        "long_checks": checks_long,
+        "short_checks": checks_short,
+        "adx_4h": float(h4["adx"]),
+        "rsi_15m": float(m15["rsi"]),
+        "last_15m_candle": m15.get("time"),
+        "last_1h_candle": h1.get("time"),
+        "last_4h_candle": h4.get("time"),
+    }

@@ -260,8 +260,9 @@ def run_portfolio(p, portfolio_id):
                         True
                     )
 
+    p["last_run"]=datetime.now(timezone.utc).isoformat()
     p.setdefault("equity_history",[]).append({
-        "time":datetime.now(timezone.utc).isoformat(),
+        "time":p["last_run"],
         "equity":round(current_equity(p),2)
     })
     p["equity_history"]=p["equity_history"][-2000:]
