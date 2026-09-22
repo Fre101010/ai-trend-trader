@@ -100,22 +100,25 @@ def expected_total_capital(state):
 def portfolio_integrity(state, live_prices_by_portfolio=None):
     live_prices_by_portfolio=live_prices_by_portfolio or {}
     total=0.0
-    for pid,p in state.get("portfolios",{}).items():
-        total += marked_values(p,live_prices_by_portfolio.get(pid,{}))["equity"]
-
-    expected=expected_total_capital(state)
-    # Realized/unrealized P/L legitimately changes equity, so compare against
-    # expected capital + total realized/open P/L to detect phantom capital.
     total_open=0.0
     total_realized=0.0
+    open_entry_fees=0.0
+
     for pid,p in state.get("portfolios",{}).items():
         vals=marked_values(p,live_prices_by_portfolio.get(pid,{}))
+        total += vals["equity"]
         total_open += vals["open_pnl"]
         total_realized += vals["realized_pnl"]
+        for pos in p.get("positions",{}).values():
+            open_entry_fees += float(pos.get("entry_fee",0.0))
 
-    theoretical=expected+total_open+total_realized
+    expected=expected_total_capital(state)
+
+    # Open entry fees have already left cash but are not part of open_pnl.
+    theoretical=expected+total_realized+total_open-open_entry_fees
     delta=total-theoretical
     ok=abs(delta) < 2.0
+
     return {
         "ok":ok,
         "actual_equity":total,
@@ -124,4 +127,5 @@ def portfolio_integrity(state, live_prices_by_portfolio=None):
         "base_capital":expected,
         "open_pnl":total_open,
         "realized_pnl":total_realized,
+        "open_entry_fees":open_entry_fees,
     }

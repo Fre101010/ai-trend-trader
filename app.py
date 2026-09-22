@@ -7,7 +7,7 @@ from paper_runner import run_once, close_position
 from repair_state import repair_state
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.4.9", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.10", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -1054,17 +1054,17 @@ def render_position_charts(pid):
 
 
 # One-time forced recovery gate
-if state.get("repair_required", True):
+if state.get("repair_required", True) or str(state.get("repair_info",{}).get("version",""))!="2.4.10":
     st.error(
         "⚠️ Herstel vereist. Automatische trading is tijdelijk geblokkeerd zodat "
         "er geen nieuwe foutieve Swing-posities kunnen openen."
     )
     st.info(
-        "Het herstel zet Swing terug op de bekende oorspronkelijke entries "
+        "Dit verplichte v2.4.10-herstel zet Swing terug op de bekende oorspronkelijke entries "
         "Nasdaq 721,67 en S&P 500 761,92, behoudt Active zoals hij nu is, "
         "herstelt Goud -€1,30 en zet de kapitaalbasis op exact €5.000."
     )
-    if st.button("🛠️ Herstel nu definitief uitvoeren", type="primary", key="repair_v249"):
+    if st.button("🛠️ Herstel v2.4.10 nu definitief uitvoeren", type="primary", key="repair_v249"):
         try:
             repair_state()
             st.success("Herstel uitgevoerd. De app wordt opnieuw geladen.")
@@ -1329,6 +1329,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.9 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.10 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
