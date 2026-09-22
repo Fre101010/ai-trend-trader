@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from trading_core import CFG, market_snapshot, desired_action, size_for_risk
-from storage import load_state, save_state
+from storage import load_state, save_state, save_portfolio_state
 from notifier import notify
 from analytics import current_equity
 from risk_guard import clamp_settings
@@ -277,10 +277,21 @@ def run_once(target="both"):
         targets=["swing","active"]
 
     for pid in targets:
-        run_portfolio(state["portfolios"][pid],pid)
+        # Work on the latest copy of this portfolio.
+        current_state,_=load_state()
+        portfolio=current_state["portfolios"][pid]
+        run_portfolio(portfolio,pid)
 
-    mode=save_state(state)
-    return state,mode
+        # Save ONLY this portfolio into the freshest global state so the other
+        # portfolio cannot be overwritten by a stale workflow.
+        save_portfolio_state(
+            pid,
+            portfolio,
+            last_run=datetime.now(timezone.utc).isoformat()
+        )
+
+    final_state,final_mode=load_state()
+    return final_state,final_mode
 
 if __name__=="__main__":
     import sys

@@ -6,7 +6,7 @@ from storage import load_state, save_state
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.5.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.6.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -1267,6 +1267,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.5 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.6 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: swing-paper-trader
+  group: ai-trend-trader-state
   cancel-in-progress: false
 
 jobs:

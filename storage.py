@@ -142,3 +142,17 @@ def save_state(state, update_last_run=True):
             return "local-demo"
     LOCAL.write_text(json.dumps(state, indent=2), encoding="utf-8")
     return "local-demo"
+
+
+def save_portfolio_state(portfolio_id, portfolio_state, last_run=None):
+    """
+    Merge-safe save for one portfolio.
+    Reloads the newest persisted state first, replaces only the requested
+    portfolio, and preserves the other portfolio/transfers/global fields.
+    """
+    latest,_ = load_state()
+    latest = normalize_state(latest)
+    latest["portfolios"][portfolio_id] = portfolio_state
+    if last_run is not None:
+        latest["last_run"] = last_run
+    return save_state(latest, update_last_run=(last_run is None))
