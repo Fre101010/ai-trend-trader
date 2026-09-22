@@ -269,6 +269,13 @@ def run_portfolio(p, portfolio_id):
 def run_once(target="both"):
     state,mode=load_state()
 
+    # Hard block until the one-time recovery has completed.
+    if state.get("repair_required", True):
+        raise RuntimeError(
+            "Portfolioherstel vereist. Automatische runner is geblokkeerd "
+            "tot v2.4.9 herstel één keer succesvol is uitgevoerd."
+        )
+
     # Block automated trading if book capital is obviously inconsistent.
     integrity=portfolio_integrity(state)
     if not integrity["ok"]:

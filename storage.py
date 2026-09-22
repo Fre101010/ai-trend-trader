@@ -83,6 +83,7 @@ def default_state():
             "external_deposits": 0.0,
             "external_withdrawals": 0.0,
         },
+        "repair_required": True,
         "last_run": None,
         "last_daily_summary_date": None,
     }
@@ -125,6 +126,7 @@ def normalize_state(state):
         "external_deposits": 0.0,
         "external_withdrawals": 0.0,
     })
+    state.setdefault("repair_required", True)
     state.setdefault("last_run", None)
     state.setdefault("last_daily_summary_date", None)
     state.setdefault("portfolios", {})
