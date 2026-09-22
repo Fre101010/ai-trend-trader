@@ -1,13 +1,18 @@
 import pandas as pd
 import altair as alt
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 from trading_core import CFG, fetch, market_snapshot, desired_action, active_diagnostics
 from storage import load_state, save_state, StorageUnavailable
 from paper_runner import run_once, close_position
 from clean_reset import clean_reset
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.5.3", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.5.4", page_icon="📈", layout="wide")
+
+# Refresh ONLY the UI/state view every 20 seconds.
+# This does NOT run the trading engine and does NOT open/close trades.
+st_autorefresh(interval=20_000, limit=None, key="ui_state_refresh")
 
 st.markdown("""
 <style>
@@ -685,6 +690,10 @@ if str(store_mode).startswith("cache-readonly"):
         "lokale cache in alleen-lezen modus. Automatisch handelen is gepauzeerd "
         "tot Supabase opnieuw bereikbaar is."
     )
+
+
+if store_mode == "supabase":
+    st.caption("🔄 Dashboard synchroniseert automatisch elke 20 seconden met Supabase.")
 
 st.markdown("""
 <div class="hero">
@@ -1382,6 +1391,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.5.3 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.5.4 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
