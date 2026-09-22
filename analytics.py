@@ -99,33 +99,31 @@ def expected_total_capital(state):
 
 def portfolio_integrity(state, live_prices_by_portfolio=None):
     live_prices_by_portfolio=live_prices_by_portfolio or {}
-    total=0.0
-    total_open=0.0
-    total_realized=0.0
+
+    actual=0.0
+    open_pnl_total=0.0
+    realized_total=0.0
     open_entry_fees=0.0
 
     for pid,p in state.get("portfolios",{}).items():
         vals=marked_values(p,live_prices_by_portfolio.get(pid,{}))
-        total += vals["equity"]
-        total_open += vals["open_pnl"]
-        total_realized += vals["realized_pnl"]
+        actual += vals["equity"]
+        open_pnl_total += vals["open_pnl"]
+        realized_total += vals["realized_pnl"]
         for pos in p.get("positions",{}).values():
             open_entry_fees += float(pos.get("entry_fee",0.0))
 
-    expected=expected_total_capital(state)
-
-    # Open entry fees have already left cash but are not part of open_pnl.
-    theoretical=expected+total_realized+total_open-open_entry_fees
-    delta=total-theoretical
-    ok=abs(delta) < 2.0
+    base=expected_total_capital(state)
+    expected=base + realized_total + open_pnl_total - open_entry_fees
+    delta=actual-expected
 
     return {
-        "ok":ok,
-        "actual_equity":total,
-        "expected_equity":theoretical,
-        "delta":delta,
-        "base_capital":expected,
-        "open_pnl":total_open,
-        "realized_pnl":total_realized,
-        "open_entry_fees":open_entry_fees,
+        "ok": abs(delta) < 1.0,
+        "actual_equity": actual,
+        "expected_equity": expected,
+        "delta": delta,
+        "base_capital": base,
+        "open_pnl": open_pnl_total,
+        "realized_pnl": realized_total,
+        "open_entry_fees": open_entry_fees,
     }

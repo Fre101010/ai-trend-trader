@@ -4,10 +4,10 @@ import streamlit as st
 from trading_core import CFG, fetch, market_snapshot, desired_action
 from storage import load_state, save_state, StorageUnavailable
 from paper_runner import run_once, close_position
-from repair_state import repair_state
+from clean_reset import clean_reset
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.4.10", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.5.0", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -1053,41 +1053,45 @@ def render_position_charts(pid):
 
 
 
-# One-time forced recovery gate
-if state.get("repair_required", True) or str(state.get("repair_info",{}).get("version",""))!="2.4.10":
+
+# One-time clean reset gate.
+reset_ok = (
+    str(state.get("repair_info",{}).get("version",""))=="2.5.0"
+    and str(state.get("repair_info",{}).get("mode",""))=="clean_reset"
+)
+
+if not reset_ok:
     st.error(
-        "⚠️ Herstel vereist. Automatische trading is tijdelijk geblokkeerd zodat "
-        "er geen nieuwe foutieve Swing-posities kunnen openen."
+        "⚠️ Eénmalige clean reset vereist. Automatische trading blijft geblokkeerd "
+        "tot de corrupte paper-state volledig is vervangen."
     )
     st.info(
-        "Dit verplichte v2.4.10-herstel zet Swing terug op de bekende oorspronkelijke entries "
-        "Nasdaq 721,67 en S&P 500 761,92, behoudt Active zoals hij nu is, "
-        "herstelt Goud -€1,30 en zet de kapitaalbasis op exact €5.000."
+        "Deze reset start opnieuw vanaf een boekhoudkundig zuivere basis: "
+        "Swing €3.998,70 + Active €1.000,00. De bevestigde historische Goud-trade "
+        "van -€1,30 blijft bewaard. Oude open posities worden bewust niet meegenomen."
     )
-    if st.button("🛠️ Herstel v2.4.10 nu definitief uitvoeren", type="primary", key="repair_v249"):
+    if st.button("🧹 Clean reset v2.5.0 uitvoeren", type="primary", key="clean_reset_v250"):
         try:
-            repair_state()
-            st.success("Herstel uitgevoerd. De app wordt opnieuw geladen.")
+            clean_reset()
+            st.success("Clean reset uitgevoerd. De app wordt opnieuw geladen.")
             st.rerun()
         except Exception as e:
-            st.error(f"Herstel mislukt: {type(e).__name__}: {e}")
+            st.error(f"Reset mislukt: {type(e).__name__}: {e}")
     st.stop()
 
-# Normal integrity display after repair.
+# Integrity status after clean reset.
 live_by_portfolio = {
     "swing": live_prices_for(state["portfolios"]["swing"], "swing"),
     "active": live_prices_for(state["portfolios"]["active"], "active"),
 }
 integrity = portfolio_integrity(state, live_by_portfolio)
-
 if not integrity["ok"]:
     st.error(
-        f"⚠️ Portefeuille-integriteit klopt niet. Afwijking: €{integrity['delta']:.2f}. "
+        f"⚠️ Integriteitscontrole wijkt af met €{integrity['delta']:.2f}. "
         "Automatische runner blijft geblokkeerd."
     )
 else:
     st.success("✅ Portefeuille-integriteit OK.")
-
 
 tabs = st.tabs([
     "🏠 Dashboard",
@@ -1329,6 +1333,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.10 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.5.0 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

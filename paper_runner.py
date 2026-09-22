@@ -269,12 +269,11 @@ def run_portfolio(p, portfolio_id):
 def run_once(target="both"):
     state,mode=load_state()
 
-    # Hard block until THIS exact recovery version has completed.
-    repair_version=str(state.get("repair_info",{}).get("version",""))
-    if state.get("repair_required", True) or repair_version!="2.4.10":
+    reset_version=str(state.get("repair_info",{}).get("version",""))
+    reset_mode=str(state.get("repair_info",{}).get("mode",""))
+    if reset_version!="2.5.0" or reset_mode!="clean_reset":
         raise RuntimeError(
-            "Portfolioherstel v2.4.10 vereist. Automatische runner is geblokkeerd "
-            "tot dit herstel één keer succesvol is uitgevoerd."
+            "Eenmalige clean reset v2.5.0 vereist voordat automatische trading opnieuw start."
         )
 
     # Block automated trading if book capital is obviously inconsistent.
