@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from trading_core import CFG, market_snapshot, desired_action, size_for_risk
-from storage import load_state, save_state, save_portfolio_state, StorageUnavailable
+from storage import load_state, save_state, save_portfolio_state, StorageUnavailable, acquire_run_lock, release_run_lock
 from notifier import notify
 from analytics import current_equity, portfolio_integrity
 from risk_guard import clamp_settings
@@ -267,57 +267,66 @@ def run_portfolio(p, portfolio_id):
     p["equity_history"]=p["equity_history"][-2000:]
 
 def run_once(target="both"):
-    state,mode=load_state()
+    lock_holder=acquire_run_lock()
+    if not lock_holder:
+        # Another runner is already processing the portfolio.
+        state,mode=load_state()
+        return state,"locked-skip"
 
-    reset_version=str(state.get("repair_info",{}).get("version",""))
-    reset_mode=str(state.get("repair_info",{}).get("mode",""))
-    if reset_version!="2.5.0" or reset_mode!="clean_reset":
-        raise RuntimeError(
-            "Eenmalige clean reset v2.5.0 vereist voordat automatische trading opnieuw start."
-        )
+    try:
+            state,mode=load_state()
 
-    # Block automated trading if book capital is obviously inconsistent.
-    integrity=portfolio_integrity(state)
-    if not integrity["ok"]:
-        raise RuntimeError(
-            f"Portfolio-integriteit mislukt: afwijking €{integrity['delta']:.2f}. "
-            "Runner gestopt om verdere state-corruptie te voorkomen."
-        )
+            reset_version=str(state.get("repair_info",{}).get("version",""))
+            reset_mode=str(state.get("repair_info",{}).get("mode",""))
+            if reset_version!="2.5.0" or reset_mode!="clean_reset":
+                raise RuntimeError(
+                    "Eenmalige clean reset v2.5.0 vereist voordat automatische trading opnieuw start."
+                )
 
-    # Automated trading must never act on a stale/read-only fallback state.
-    if str(mode).startswith("cache-readonly"):
-        raise StorageUnavailable(
-            "Runner gestopt: Supabase is tijdelijk niet leesbaar. "
-            "Geen trades geopend/gesloten op basis van cached data."
-        )
+            # Block automated trading if book capital is obviously inconsistent.
+            integrity=portfolio_integrity(state)
+            if not integrity["ok"]:
+                raise RuntimeError(
+                    f"Portfolio-integriteit mislukt: afwijking €{integrity['delta']:.2f}. "
+                    "Runner gestopt om verdere state-corruptie te voorkomen."
+                )
 
-    if target=="swing":
-        targets=["swing"]
-    elif target=="active":
-        targets=["active"]
-    else:
-        targets=["swing","active"]
+            # Automated trading must never act on a stale/read-only fallback state.
+            if str(mode).startswith("cache-readonly"):
+                raise StorageUnavailable(
+                    "Runner gestopt: Supabase is tijdelijk niet leesbaar. "
+                    "Geen trades geopend/gesloten op basis van cached data."
+                )
 
-    for pid in targets:
-        # Work on the latest copy of this portfolio.
-        current_state,current_mode=load_state()
-        if str(current_mode).startswith("cache-readonly"):
-            raise StorageUnavailable(
-                f"{pid} runner gestopt: persistent state is tijdelijk niet beschikbaar."
-            )
-        portfolio=current_state["portfolios"][pid]
-        run_portfolio(portfolio,pid)
+            if target=="swing":
+                targets=["swing"]
+            elif target=="active":
+                targets=["active"]
+            else:
+                targets=["swing","active"]
 
-        # Save ONLY this portfolio into the freshest global state so the other
-        # portfolio cannot be overwritten by a stale workflow.
-        save_portfolio_state(
-            pid,
-            portfolio,
-            last_run=datetime.now(timezone.utc).isoformat()
-        )
+            for pid in targets:
+                # Work on the latest copy of this portfolio.
+                current_state,current_mode=load_state()
+                if str(current_mode).startswith("cache-readonly"):
+                    raise StorageUnavailable(
+                        f"{pid} runner gestopt: persistent state is tijdelijk niet beschikbaar."
+                    )
+                portfolio=current_state["portfolios"][pid]
+                run_portfolio(portfolio,pid)
 
-    final_state,final_mode=load_state()
-    return final_state,final_mode
+                # Save ONLY this portfolio into the freshest global state so the other
+                # portfolio cannot be overwritten by a stale workflow.
+                save_portfolio_state(
+                    pid,
+                    portfolio,
+                    last_run=datetime.now(timezone.utc).isoformat()
+                )
+
+            final_state,final_mode=load_state()
+            return final_state,final_mode
+    finally:
+        release_run_lock(lock_holder)
 
 if __name__=="__main__":
     import sys

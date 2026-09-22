@@ -1,7 +1,8 @@
 from __future__ import annotations
 import os, json
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import uuid
 
 LOCAL = Path("paper_state.json")
 
@@ -141,6 +142,72 @@ def normalize_state(state):
             p["automation"].setdefault(k,v)
 
     return state
+
+
+RUN_LOCK_ID = 99
+RUN_LOCK_TTL_SECONDS = 180
+
+def acquire_run_lock(holder=None):
+    """
+    Distributed lock using a dedicated row in paper_state.
+    INSERT is atomic because id is unique; only one runner can create id=99.
+    """
+    holder = holder or str(uuid.uuid4())
+    sb = _supabase()
+
+    if not sb:
+        # Local/demo mode: no distributed concurrency possible.
+        return holder
+
+    now = datetime.now(timezone.utc)
+
+    # Clear only clearly stale locks.
+    try:
+        res = sb.table("paper_state").select("*").eq("id", RUN_LOCK_ID).execute()
+        if res.data:
+            payload = res.data[0].get("payload") or {}
+            created_raw = payload.get("created_at")
+            if created_raw:
+                try:
+                    created = datetime.fromisoformat(str(created_raw).replace("Z","+00:00"))
+                    if now - created > timedelta(seconds=RUN_LOCK_TTL_SECONDS):
+                        sb.table("paper_state").delete().eq("id", RUN_LOCK_ID).execute()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    payload = {
+        "holder": holder,
+        "created_at": now.isoformat(),
+    }
+
+    try:
+        # IMPORTANT: insert, not upsert. Unique id makes this an atomic claim.
+        sb.table("paper_state").insert({
+            "id": RUN_LOCK_ID,
+            "payload": payload
+        }).execute()
+        return holder
+    except Exception:
+        return None
+
+def release_run_lock(holder):
+    if not holder:
+        return
+    sb = _supabase()
+    if not sb:
+        return
+
+    try:
+        res = sb.table("paper_state").select("*").eq("id", RUN_LOCK_ID).execute()
+        if not res.data:
+            return
+        payload = res.data[0].get("payload") or {}
+        if payload.get("holder") == holder:
+            sb.table("paper_state").delete().eq("id", RUN_LOCK_ID).execute()
+    except Exception:
+        pass
 
 def load_state():
     sb = _supabase()

@@ -7,7 +7,7 @@ from paper_runner import run_once, close_position
 from clean_reset import clean_reset
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.5.0", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.5.1", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -1138,7 +1138,13 @@ with tabs[0]:
         try:
             with st.spinner("Swing en Active analyseren..."):
                 state, store_mode = run_once()
-            st.success("Beide portefeuilles zijn bijgewerkt.")
+            if store_mode == "locked-skip":
+                st.info(
+                    "Er liep al een automatische tradingrun. Deze extra controle "
+                    "is overgeslagen om dubbele trades/meldingen te voorkomen."
+                )
+            else:
+                st.success("Beide portefeuilles zijn bijgewerkt.")
             st.rerun()
         except StorageUnavailable as e:
             st.error(
@@ -1333,6 +1339,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.5.0 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.5.1 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
