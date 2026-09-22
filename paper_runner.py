@@ -81,6 +81,10 @@ def close_position(p, portfolio_id, asset, price, reason="manual_close", do_noti
     )
     return trade
 
+def set_runner_status(state, portfolio_id, **fields):
+    status=state.setdefault("runner_status",{}).setdefault(portfolio_id,{})
+    status.update(fields)
+
 def run_portfolio(p, portfolio_id):
     mode = "swing" if portfolio_id=="swing" else "active"
     fee=CFG["execution"]["fee_rate"]
@@ -268,64 +272,109 @@ def run_portfolio(p, portfolio_id):
     p["equity_history"]=p["equity_history"][-2000:]
 
 def run_once(target="both"):
+    attempt_time=datetime.now(timezone.utc).isoformat()
+
+    # Save a heartbeat as soon as the runner starts.
+    try:
+        hb_state,hb_mode=load_state()
+        hb_targets=[target] if target in ["active","swing"] else ["active","swing"]
+        for pid in hb_targets:
+            set_runner_status(hb_state,pid,last_attempt=attempt_time)
+        save_state(hb_state,update_last_run=False)
+    except Exception:
+        pass
+
     lock_holder=acquire_run_lock()
     if not lock_holder:
-        # Another runner is already processing the portfolio.
         state,mode=load_state()
+        hb_targets=[target] if target in ["active","swing"] else ["active","swing"]
+        for pid in hb_targets:
+            set_runner_status(
+                state,pid,
+                last_attempt=attempt_time,
+                last_result="LOCKED_SKIP",
+                last_message="Andere runner was bezig."
+            )
+        try:
+            save_state(state,update_last_run=False)
+        except Exception:
+            pass
         return state,"locked-skip"
 
     try:
-            state,mode=load_state()
+        state,mode=load_state()
 
-            reset_version=str(state.get("repair_info",{}).get("version",""))
-            reset_mode=str(state.get("repair_info",{}).get("mode",""))
-            if reset_version!="2.5.0" or reset_mode!="clean_reset":
-                raise RuntimeError(
-                    "Eenmalige clean reset v2.5.0 vereist voordat automatische trading opnieuw start."
-                )
+        reset_version=str(state.get("repair_info",{}).get("version",""))
+        reset_mode=str(state.get("repair_info",{}).get("mode",""))
+        if reset_version!="2.5.0" or reset_mode!="clean_reset":
+            raise RuntimeError(
+                "Eenmalige clean reset v2.5.0 vereist voordat automatische trading opnieuw start."
+            )
 
-            # Block automated trading if book capital is obviously inconsistent.
-            integrity=portfolio_integrity(state)
-            if not integrity["ok"]:
-                raise RuntimeError(
-                    f"Portfolio-integriteit mislukt: afwijking €{integrity['delta']:.2f}. "
-                    "Runner gestopt om verdere state-corruptie te voorkomen."
-                )
+        integrity=portfolio_integrity(state)
+        if not integrity["ok"]:
+            raise RuntimeError(
+                f"Portfolio-integriteit mislukt: afwijking €{integrity['delta']:.2f}. "
+                "Runner gestopt om verdere state-corruptie te voorkomen."
+            )
 
-            # Automated trading must never act on a stale/read-only fallback state.
-            if str(mode).startswith("cache-readonly"):
+        if str(mode).startswith("cache-readonly"):
+            raise StorageUnavailable(
+                "Runner gestopt: Supabase is tijdelijk niet leesbaar. "
+                "Geen trades geopend/gesloten op basis van cached data."
+            )
+
+        if target=="swing":
+            targets=["swing"]
+        elif target=="active":
+            targets=["active"]
+        else:
+            targets=["swing","active"]
+
+        for pid in targets:
+            current_state,current_mode=load_state()
+            if str(current_mode).startswith("cache-readonly"):
                 raise StorageUnavailable(
-                    "Runner gestopt: Supabase is tijdelijk niet leesbaar. "
-                    "Geen trades geopend/gesloten op basis van cached data."
+                    f"{pid} runner gestopt: persistent state is tijdelijk niet beschikbaar."
                 )
 
-            if target=="swing":
-                targets=["swing"]
-            elif target=="active":
-                targets=["active"]
-            else:
-                targets=["swing","active"]
+            portfolio=current_state["portfolios"][pid]
+            before=set(portfolio.get("positions",{}).keys())
+            run_portfolio(portfolio,pid)
+            after=set(portfolio.get("positions",{}).keys())
 
-            for pid in targets:
-                # Work on the latest copy of this portfolio.
-                current_state,current_mode=load_state()
-                if str(current_mode).startswith("cache-readonly"):
-                    raise StorageUnavailable(
-                        f"{pid} runner gestopt: persistent state is tijdelijk niet beschikbaar."
-                    )
-                portfolio=current_state["portfolios"][pid]
-                run_portfolio(portfolio,pid)
+            set_runner_status(
+                current_state,
+                pid,
+                last_attempt=attempt_time,
+                last_success=datetime.now(timezone.utc).isoformat(),
+                last_result="OK",
+                opened=sorted(after-before),
+                closed=sorted(before-after),
+                open_positions=len(after)
+            )
 
-                # Save ONLY this portfolio into the freshest global state so the other
-                # portfolio cannot be overwritten by a stale workflow.
-                save_portfolio_state(
-                    pid,
-                    portfolio,
-                    last_run=datetime.now(timezone.utc).isoformat()
+            current_state["portfolios"][pid]=portfolio
+            save_state(current_state,update_last_run=True)
+
+        final_state,final_mode=load_state()
+        return final_state,final_mode
+
+    except Exception as e:
+        try:
+            err_state,_=load_state()
+            err_targets=[target] if target in ["active","swing"] else ["active","swing"]
+            for pid in err_targets:
+                set_runner_status(
+                    err_state,pid,
+                    last_attempt=attempt_time,
+                    last_result="ERROR",
+                    last_message=f"{type(e).__name__}: {e}"
                 )
-
-            final_state,final_mode=load_state()
-            return final_state,final_mode
+            save_state(err_state,update_last_run=False)
+        except Exception:
+            pass
+        raise
     finally:
         release_run_lock(lock_holder)
 

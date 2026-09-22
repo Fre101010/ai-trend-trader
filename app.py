@@ -7,7 +7,7 @@ from paper_runner import run_once, close_position
 from clean_reset import clean_reset
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.5.2", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.5.3", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -1297,11 +1297,23 @@ with tabs[5]:
     mode_sel = portfolio.lower()
 
     if mode_sel == "active":
-        last_run = state["portfolios"]["active"].get("last_run")
-        if last_run:
-            st.info(f"⚡ Laatste Active runner: {last_run}")
+        rs=state.get("runner_status",{}).get("active",{})
+        c1,c2=st.columns(2)
+        c1.metric("Laatste poging", rs.get("last_attempt","Nog niet"))
+        c2.metric("Laatste succes", rs.get("last_success","Nog niet"))
+
+        result=rs.get("last_result","ONBEKEND")
+        if result=="OK":
+            st.success(
+                f"Active runner OK • open posities: {rs.get('open_positions','?')} • "
+                f"geopend: {', '.join(rs.get('opened',[])) or 'geen'}"
+            )
+        elif result=="LOCKED_SKIP":
+            st.warning("Laatste Active-run werd overgeslagen omdat een andere runner bezig was.")
+        elif result=="ERROR":
+            st.error(f"Laatste Active-run gaf fout: {rs.get('last_message','onbekend')}")
         else:
-            st.warning("Nog geen Active runner-tijd geregistreerd sinds v2.5.2.")
+            st.info("Nog geen runnerstatus ontvangen sinds v2.5.3.")
 
     if st.button("🔎 Scan markten", type="primary"):
         out=[]
@@ -1370,6 +1382,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.5.2 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.5.3 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
