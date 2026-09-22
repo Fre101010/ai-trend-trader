@@ -78,6 +78,11 @@ def default_state():
             "active": portfolio_template(0.0),
         },
         "transfers": [],
+        "capital_ledger": {
+            "initial_total_capital": 5000.0,
+            "external_deposits": 0.0,
+            "external_withdrawals": 0.0,
+        },
         "last_run": None,
         "last_daily_summary_date": None,
     }
@@ -97,6 +102,11 @@ def _legacy_to_v2(state):
             "active": portfolio_template(0.0),
         },
         "transfers": [],
+        "capital_ledger": {
+            "initial_total_capital": 5000.0,
+            "external_deposits": 0.0,
+            "external_withdrawals": 0.0,
+        },
         "last_run": state.get("last_run"),
         "last_daily_summary_date": state.get("last_daily_summary_date"),
     }
@@ -110,6 +120,11 @@ def normalize_state(state):
 
     state.setdefault("version", 2)
     state.setdefault("transfers", [])
+    state.setdefault("capital_ledger", {
+        "initial_total_capital": 5000.0,
+        "external_deposits": 0.0,
+        "external_withdrawals": 0.0,
+    })
     state.setdefault("last_run", None)
     state.setdefault("last_daily_summary_date", None)
     state.setdefault("portfolios", {})

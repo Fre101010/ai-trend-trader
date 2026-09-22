@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from trading_core import CFG, market_snapshot, desired_action, size_for_risk
 from storage import load_state, save_state, save_portfolio_state, StorageUnavailable
 from notifier import notify
-from analytics import current_equity
+from analytics import current_equity, portfolio_integrity
 from risk_guard import clamp_settings
 
 def add_event(p, kind, asset, message, extra=None, do_notify=True):
@@ -268,6 +268,14 @@ def run_portfolio(p, portfolio_id):
 
 def run_once(target="both"):
     state,mode=load_state()
+
+    # Block automated trading if book capital is obviously inconsistent.
+    integrity=portfolio_integrity(state)
+    if not integrity["ok"]:
+        raise RuntimeError(
+            f"Portfolio-integriteit mislukt: afwijking €{integrity['delta']:.2f}. "
+            "Runner gestopt om verdere state-corruptie te voorkomen."
+        )
 
     # Automated trading must never act on a stale/read-only fallback state.
     if str(mode).startswith("cache-readonly"):

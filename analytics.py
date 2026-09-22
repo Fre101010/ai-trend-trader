@@ -88,3 +88,40 @@ def max_drawdown_pct(p):
 
 def total_state_equity(state):
     return sum(current_equity(p) for p in state.get("portfolios",{}).values())
+
+
+def expected_total_capital(state):
+    ledger=state.get("capital_ledger",{})
+    initial=float(ledger.get("initial_total_capital",5000.0))
+    deposits=float(ledger.get("external_deposits",0.0))
+    withdrawals=float(ledger.get("external_withdrawals",0.0))
+    return initial+deposits-withdrawals
+
+def portfolio_integrity(state, live_prices_by_portfolio=None):
+    live_prices_by_portfolio=live_prices_by_portfolio or {}
+    total=0.0
+    for pid,p in state.get("portfolios",{}).items():
+        total += marked_values(p,live_prices_by_portfolio.get(pid,{}))["equity"]
+
+    expected=expected_total_capital(state)
+    # Realized/unrealized P/L legitimately changes equity, so compare against
+    # expected capital + total realized/open P/L to detect phantom capital.
+    total_open=0.0
+    total_realized=0.0
+    for pid,p in state.get("portfolios",{}).items():
+        vals=marked_values(p,live_prices_by_portfolio.get(pid,{}))
+        total_open += vals["open_pnl"]
+        total_realized += vals["realized_pnl"]
+
+    theoretical=expected+total_open+total_realized
+    delta=total-theoretical
+    ok=abs(delta) < 2.0
+    return {
+        "ok":ok,
+        "actual_equity":total,
+        "expected_equity":theoretical,
+        "delta":delta,
+        "base_capital":expected,
+        "open_pnl":total_open,
+        "realized_pnl":total_realized,
+    }

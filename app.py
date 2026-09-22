@@ -4,9 +4,10 @@ import streamlit as st
 from trading_core import CFG, fetch, market_snapshot, desired_action
 from storage import load_state, save_state, StorageUnavailable
 from paper_runner import run_once, close_position
-from analytics import marked_values, trade_stats, max_drawdown_pct
+from repair_state import repair_state
+from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.4.7", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.8", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -1050,6 +1051,43 @@ def render_position_charts(pid):
                     f"Grafiek voor {asset} kon niet geladen worden: {type(e).__name__}"
                 )
 
+
+# Portfolio integrity / one-time repair
+live_by_portfolio = {
+    "swing": live_prices_for(state["portfolios"]["swing"], "swing"),
+    "active": live_prices_for(state["portfolios"]["active"], "active"),
+}
+integrity = portfolio_integrity(state, live_by_portfolio)
+
+if not integrity["ok"]:
+    st.error(
+        f"⚠️ Portefeuille-integriteit klopt niet. Afwijking: €{integrity['delta']:.2f}. "
+        "Automatisch handelen is geblokkeerd totdat de state is hersteld."
+    )
+    st.caption(
+        f"Basis kapitaal: €{integrity['base_capital']:.2f} • "
+        f"Verwachte equity incl. P/L: €{integrity['expected_equity']:.2f} • "
+        f"Gemeten equity: €{integrity['actual_equity']:.2f}"
+    )
+
+if not state.get("repair_info"):
+    with st.expander("🛠️ Eenmalig portefeuilleherstel v2.4.8", expanded=not integrity["ok"]):
+        st.write(
+            "Herstelt het totale startkapitaal naar €5.000, behoudt Active zoals het nu staat, "
+            "herstelt de bekende Swing-posities Nasdaq (721,67) en S&P 500 (761,92), "
+            "en zet de bekende gerealiseerde Goud-trade van -€1,30 terug."
+        )
+        if st.button("🛠️ Portefeuille nu herstellen", type="primary", key="repair_v248"):
+            try:
+                repaired,_ = repair_state()
+                st.success("Portefeuille hersteld en opnieuw opgeslagen.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Herstel kon niet worden uitgevoerd: {type(e).__name__}: {e}")
+else:
+    st.success("✅ Portefeuille-integriteit is eerder hersteld met v2.4.8.")
+
+
 tabs = st.tabs([
     "🏠 Dashboard",
     "📈 Swing",
@@ -1290,6 +1328,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.7 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.8 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
