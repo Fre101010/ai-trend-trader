@@ -2,11 +2,11 @@ import pandas as pd
 import altair as alt
 import streamlit as st
 from trading_core import CFG, fetch, market_snapshot, desired_action
-from storage import load_state, save_state
+from storage import load_state, save_state, StorageUnavailable
 from paper_runner import run_once, close_position
 from analytics import marked_values, trade_stats, max_drawdown_pct
 
-st.set_page_config(page_title="AI Trend Trader v2.4.6.1", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.4.7", page_icon="📈", layout="wide")
 
 st.markdown("""
 <style>
@@ -668,7 +668,22 @@ div[data-testid="stTabs"] [role="tabpanel"],
 </style>
 """, unsafe_allow_html=True)
 
-state, store_mode = load_state()
+try:
+    state, store_mode = load_state()
+except StorageUnavailable as e:
+    st.error(
+        "⚠️ Opslag tijdelijk niet bereikbaar. Uit veiligheid wordt GEEN lege "
+        "portefeuille getoond en worden geen trades uitgevoerd."
+    )
+    st.code(str(e))
+    st.stop()
+
+if str(store_mode).startswith("cache-readonly"):
+    st.warning(
+        "⚠️ Supabase is tijdelijk niet bereikbaar. Je ziet de laatst geldige "
+        "lokale cache in alleen-lezen modus. Automatisch handelen is gepauzeerd "
+        "tot Supabase opnieuw bereikbaar is."
+    )
 
 st.markdown("""
 <div class="hero">
@@ -1077,9 +1092,17 @@ with tabs[0]:
         unsafe_allow_html=True,
     )
     if st.button("▶️ Beide portefeuilles nu extra controleren", type="primary"):
-        with st.spinner("Swing en Active analyseren..."):
-            state, store_mode = run_once()
-        st.success("Beide portefeuilles zijn bijgewerkt.")
+        try:
+            with st.spinner("Swing en Active analyseren..."):
+                state, store_mode = run_once()
+            st.success("Beide portefeuilles zijn bijgewerkt.")
+            st.rerun()
+        except StorageUnavailable as e:
+            st.error(
+                "Bijwerken gestopt omdat de persistente opslag tijdelijk niet "
+                "betrouwbaar bereikbaar is. Er is niets gereset."
+            )
+            st.code(str(e))
 
 with tabs[1]:
     p = state["portfolios"]["swing"]
@@ -1267,6 +1290,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.4.6 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.4.7 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )

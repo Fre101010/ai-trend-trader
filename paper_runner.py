@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from trading_core import CFG, market_snapshot, desired_action, size_for_risk
-from storage import load_state, save_state, save_portfolio_state
+from storage import load_state, save_state, save_portfolio_state, StorageUnavailable
 from notifier import notify
 from analytics import current_equity
 from risk_guard import clamp_settings
@@ -269,6 +269,13 @@ def run_portfolio(p, portfolio_id):
 def run_once(target="both"):
     state,mode=load_state()
 
+    # Automated trading must never act on a stale/read-only fallback state.
+    if str(mode).startswith("cache-readonly"):
+        raise StorageUnavailable(
+            "Runner gestopt: Supabase is tijdelijk niet leesbaar. "
+            "Geen trades geopend/gesloten op basis van cached data."
+        )
+
     if target=="swing":
         targets=["swing"]
     elif target=="active":
@@ -278,7 +285,11 @@ def run_once(target="both"):
 
     for pid in targets:
         # Work on the latest copy of this portfolio.
-        current_state,_=load_state()
+        current_state,current_mode=load_state()
+        if str(current_mode).startswith("cache-readonly"):
+            raise StorageUnavailable(
+                f"{pid} runner gestopt: persistent state is tijdelijk niet beschikbaar."
+            )
         portfolio=current_state["portfolios"][pid]
         run_portfolio(portfolio,pid)
 

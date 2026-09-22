@@ -5,6 +5,23 @@ from datetime import datetime, timezone
 
 LOCAL = Path("paper_state.json")
 
+class StorageUnavailable(RuntimeError):
+    pass
+
+def _write_cache(state):
+    try:
+        LOCAL.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+def _read_cache():
+    if LOCAL.exists():
+        try:
+            return normalize_state(json.loads(LOCAL.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    return None
+
 def _get_secret(name):
     val = os.getenv(name)
     if val:
@@ -110,37 +127,63 @@ def normalize_state(state):
 
 def load_state():
     sb = _supabase()
+
+    # Supabase configured: it is the source of truth.
+    # Never silently return a fresh/default portfolio on a read error.
     if sb:
         try:
             res = sb.table("paper_state").select("*").eq("id", 1).execute()
             if res.data:
-                return normalize_state(res.data[0]["payload"]), "supabase"
+                state = normalize_state(res.data[0]["payload"])
+                _write_cache(state)
+                return state, "supabase"
+
+            # Only create a new row when the table genuinely has no row.
             state = default_state()
             sb.table("paper_state").upsert({"id": 1, "payload": state}).execute()
+            _write_cache(state)
             return state, "supabase"
-        except Exception as e:
-            return default_state(), f"supabase-error:{type(e).__name__}"
 
-    if LOCAL.exists():
-        try:
-            return normalize_state(json.loads(LOCAL.read_text(encoding="utf-8"))), "local-demo"
-        except Exception:
-            pass
-    return default_state(), "new"
+        except Exception as e:
+            cached = _read_cache()
+            if cached is not None:
+                return cached, f"cache-readonly:{type(e).__name__}"
+            raise StorageUnavailable(
+                f"Supabase tijdelijk niet bereikbaar ({type(e).__name__}). "
+                "Er wordt bewust GEEN lege standaardportefeuille geladen."
+            ) from e
+
+    # No Supabase configured: local demo mode only.
+    cached = _read_cache()
+    if cached is not None:
+        return cached, "local-demo"
+
+    state = default_state()
+    _write_cache(state)
+    return state, "new-local"
+
 
 def save_state(state, update_last_run=True):
     state = normalize_state(state)
     if update_last_run:
         state["last_run"] = datetime.now(timezone.utc).isoformat()
+
     sb = _supabase()
     if sb:
         try:
             sb.table("paper_state").upsert({"id": 1, "payload": state}).execute()
+            _write_cache(state)
             return "supabase"
-        except Exception:
-            LOCAL.write_text(json.dumps(state, indent=2), encoding="utf-8")
-            return "local-demo"
-    LOCAL.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        except Exception as e:
+            # Keep a local cache for display/recovery, but do NOT pretend the
+            # persistent save succeeded.
+            _write_cache(state)
+            raise StorageUnavailable(
+                f"Supabase write mislukt ({type(e).__name__}). "
+                "De wijziging is niet als persistent bevestigd."
+            ) from e
+
+    _write_cache(state)
     return "local-demo"
 
 
