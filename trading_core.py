@@ -30,23 +30,68 @@ def adx(d,n=14):
     return dx.ewm(alpha=1/n,adjust=False).mean().fillna(0),p.fillna(0),m.fillna(0)
 
 def fetch(ticker,tf):
-    period,interval={
-        '1d':('5y','1d'),
-        '4h':('730d','60m'),
-        '1h':('730d','60m'),
-        '15m':('60d','15m')
+    # Yahoo/yfinance can intermittently return an empty intraday response.
+    # Try progressively smaller windows before declaring the feed unavailable.
+    candidates={
+        '1d':[('5y','1d'),('2y','1d'),('1y','1d')],
+        '4h':[('730d','60m'),('180d','60m'),('60d','60m')],
+        '1h':[('730d','60m'),('180d','60m'),('60d','60m')],
+        '15m':[('60d','15m'),('30d','15m'),('10d','15m'),('5d','15m')],
     }[tf]
-    d=yf.download(ticker,period=period,interval=interval,auto_adjust=True,progress=False)
-    if d.empty:
-        raise RuntimeError(f'Geen data voor {ticker}')
-    if isinstance(d.columns,pd.MultiIndex):
-        d.columns=d.columns.get_level_values(0)
-    d=d.rename(columns=str.lower)
-    for c in ['open','high','low','close','volume']:
-        if c not in d.columns: d[c]=0.0
-    d=d[['open','high','low','close','volume']].dropna(subset=['open','high','low','close'])
+
+    last_error=None
+    d=None
+
+    for period,interval in candidates:
+        try:
+            x=yf.download(
+                ticker,
+                period=period,
+                interval=interval,
+                auto_adjust=True,
+                progress=False,
+                threads=False,
+            )
+            if x is None or x.empty:
+                continue
+
+            if isinstance(x.columns,pd.MultiIndex):
+                x.columns=x.columns.get_level_values(0)
+
+            x=x.rename(columns=str.lower)
+            for c in ['open','high','low','close','volume']:
+                if c not in x.columns:
+                    x[c]=0.0
+
+            x=x[['open','high','low','close','volume']].dropna(
+                subset=['open','high','low','close']
+            )
+
+            if x.empty:
+                continue
+
+            d=x
+            break
+        except Exception as e:
+            last_error=e
+            continue
+
+    if d is None or d.empty:
+        detail=f" ({type(last_error).__name__})" if last_error else ""
+        raise RuntimeError(f'Geen actuele koersdata voor {ticker}{detail}')
+
     if tf=='4h':
-        d=d.resample('4h').agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'}).dropna()
+        d=d.resample('4h').agg({
+            'open':'first',
+            'high':'max',
+            'low':'min',
+            'close':'last',
+            'volume':'sum'
+        }).dropna()
+
+    if d.empty:
+        raise RuntimeError(f'Geen bruikbare {tf}-data voor {ticker}')
+
     return d
 
 def enrich(d,p):

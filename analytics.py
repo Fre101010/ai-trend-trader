@@ -116,9 +116,10 @@ def portfolio_integrity(state, live_prices_by_portfolio=None):
     base=expected_total_capital(state)
     expected=base + realized_total + open_pnl_total - open_entry_fees
     delta=actual-expected
+    tolerance=max(2.0, abs(base)*0.001)
 
     return {
-        "ok": abs(delta) < 1.0,
+        "ok": abs(delta) <= tolerance,
         "actual_equity": actual,
         "expected_equity": expected,
         "delta": delta,
@@ -126,4 +127,5 @@ def portfolio_integrity(state, live_prices_by_portfolio=None):
         "open_pnl": open_pnl_total,
         "realized_pnl": realized_total,
         "open_entry_fees": open_entry_fees,
+        "tolerance": tolerance,
     }

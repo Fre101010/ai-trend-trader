@@ -1,18 +1,31 @@
 import pandas as pd
 import altair as alt
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
+import time
 from trading_core import CFG, fetch, market_snapshot, desired_action, active_diagnostics
 from storage import load_state, save_state, StorageUnavailable
 from paper_runner import run_once, close_position
 from clean_reset import clean_reset
 from analytics import marked_values, trade_stats, max_drawdown_pct, portfolio_integrity
 
-st.set_page_config(page_title="AI Trend Trader v2.5.4", page_icon="📈", layout="wide")
+st.set_page_config(page_title="AI Trend Trader v2.5.5", page_icon="📈", layout="wide")
 
-# Refresh ONLY the UI/state view every 20 seconds.
-# This does NOT run the trading engine and does NOT open/close trades.
-st_autorefresh(interval=20_000, limit=None, key="ui_state_refresh")
+# Native Streamlit refresh: no third-party component.
+# The fragment wakes every 20 seconds and triggers a full app rerun only
+# when 18+ seconds have elapsed. It never runs the trading engine itself.
+if "_last_full_ui_refresh" not in st.session_state:
+    st.session_state["_last_full_ui_refresh"] = time.time()
+
+@st.fragment(run_every="20s")
+def _native_ui_refresh():
+    now = time.time()
+    last = float(st.session_state.get("_last_full_ui_refresh", now))
+    if now - last >= 18:
+        st.session_state["_last_full_ui_refresh"] = now
+        st.rerun()
+
+_native_ui_refresh()
+
 
 st.markdown("""
 <style>
@@ -693,7 +706,7 @@ if str(store_mode).startswith("cache-readonly"):
 
 
 if store_mode == "supabase":
-    st.caption("🔄 Dashboard synchroniseert automatisch elke 20 seconden met Supabase.")
+    st.caption("🔄 Dashboard synchroniseert automatisch elke 20 seconden met Supabase (native Streamlit).")
 
 st.markdown("""
 <div class="hero">
@@ -1391,6 +1404,6 @@ with tabs[6]:
         st.info("Nog geen gesloten trades in deze portefeuille.")
 
 st.markdown(
-    '<div class="footer">AI Trend Trader v2.5.4 • Swing + Active • Paper-first multi-asset trend trading</div>',
+    '<div class="footer">AI Trend Trader v2.5.5 • Swing + Active • Paper-first multi-asset trend trading</div>',
     unsafe_allow_html=True,
 )
